@@ -126,3 +126,23 @@ jobs:
 
       - name: Push to NuGet
         run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+      - name: Create platform archives
+        shell: bash
+        run: |
+          mkdir -p release-archives
+          for rid in win-x64 linux-x64 osx-arm64; do
+            if [ -d "runtimes/$rid/native" ]; then
+              cd "runtimes/$rid/native"
+              zip ../../../release-archives/zvec-native-$rid.zip *
+              cd ../../..
+            fi
+          done
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-archives/*.zip
+            nupkg/*.nupkg
+            nupkg/*.snupkg
