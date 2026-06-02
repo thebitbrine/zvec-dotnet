@@ -7,9 +7,25 @@ on:
   pull_request:
     branches: [master]
 
+env:
+  ZVEC_VERSION: '0.4.0'
+
 jobs:
   build-and-test:
-    runs-on: windows-latest
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            lib-glob: 'bin/*.dll'
+          - os: ubuntu-latest
+            rid: linux-x64
+            lib-glob: 'lib/libzvec*.so*'
+          - os: macos-14
+            rid: osx-arm64
+            lib-glob: 'lib/libzvec*.dylib'
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
@@ -25,12 +41,15 @@ jobs:
           python-version: '3.12'
 
       - name: Download native binaries from PyPI
-        shell: pwsh
+        shell: bash
         run: |
-          pip install --no-deps --target "$env:TEMP\zvec_pkg" zvec==0.4.0
-          New-Item -ItemType Directory -Force -Path "runtimes\win-x64\native" | Out-Null
-          Copy-Item "$env:TEMP\zvec_pkg\bin\*.dll" "runtimes\win-x64\native\" -Force
-          Get-ChildItem "runtimes\win-x64\native"
+          pip install --no-deps --target "$RUNNER_TEMP/zvec_pkg" zvec==$ZVEC_VERSION
+          mkdir -p "runtimes/${{ matrix.rid }}/native"
+          # Copy all native libs matching the platform pattern
+          find "$RUNNER_TEMP/zvec_pkg" -name "*.dll" -o -name "*.so" -o -name "*.so.*" -o -name "*.dylib" | while read f; do
+            cp "$f" "runtimes/${{ matrix.rid }}/native/"
+          done
+          ls -la "runtimes/${{ matrix.rid }}/native/"
 
       - name: Build
         run: dotnet build --configuration Release
@@ -56,12 +75,19 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Download native binaries
-        shell: pwsh
+      - name: Download native binaries for all platforms
+        shell: bash
         run: |
-          pip install --no-deps --target "$env:TEMP\zvec_pkg" zvec==0.4.0
-          New-Item -ItemType Directory -Force -Path "runtimes\win-x64\native" | Out-Null
-          Copy-Item "$env:TEMP\zvec_pkg\bin\*.dll" "runtimes\win-x64\native\" -Force
+          for platform in "win_amd64:win-x64:bin/*.dll" "manylinux_2_28_x86_64:linux-x64:lib/libzvec*" "macosx_11_0_arm64:osx-arm64:lib/libzvec*"; do
+            IFS=':' read -r pyplat rid glob <<< "$platform"
+            dir="$RUNNER_TEMP/zvec_$rid"
+            pip install --no-deps --target "$dir" --platform "$pyplat" --python-version 3.12 --only-binary :all: zvec==$ZVEC_VERSION
+            mkdir -p "runtimes/$rid/native"
+            find "$dir" -name "*.dll" -o -name "*.so" -o -name "*.so.*" -o -name "*.dylib" | while read f; do
+              cp "$f" "runtimes/$rid/native/"
+            done
+          done
+          find runtimes -type f | head -20
 
       - name: Pack
         run: dotnet pack src/Zvec/Zvec.csproj --configuration Release --output ./nupkg
@@ -70,7 +96,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: nuget-package
-          path: ./nupkg/*.nupkg
+          path: ./nupkg/*.*nupkg
 
       - name: Push to NuGet
         run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate

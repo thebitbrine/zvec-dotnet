@@ -4,7 +4,8 @@ using Zvec.Native;
 namespace Zvec;
 
 /// <summary>
-/// Main entry point for zvec operations. Wraps a native collection handle.
+/// Represents an open zvec collection. Supports insert, update, upsert, delete,
+/// vector search, index management, and schema evolution. Implements IDisposable.
 /// </summary>
 public class ZvecCollection : IDisposable
 {
@@ -17,8 +18,10 @@ public class ZvecCollection : IDisposable
     }
 
     /// <summary>
-    /// Create a new collection and open it.
+    /// Create a new collection on disk and open it.
     /// </summary>
+    /// <param name="path">Directory path for the collection data.</param>
+    /// <param name="configureSchema">Action to configure the collection schema (vector fields, scalar fields).</param>
     public static ZvecCollection CreateAndOpen(string path, Action<ZvecSchema> configureSchema)
     {
         ZvecRuntime.Initialize();
@@ -44,8 +47,9 @@ public class ZvecCollection : IDisposable
     }
 
     /// <summary>
-    /// Open an existing collection.
+    /// Open an existing collection from disk.
     /// </summary>
+    /// <param name="path">Directory path of the collection.</param>
     public static ZvecCollection Open(string path)
     {
         ZvecRuntime.Initialize();
@@ -77,8 +81,11 @@ public class ZvecCollection : IDisposable
     /// <summary>
     /// Create an HNSW index with explicit tuning parameters.
     /// </summary>
+    /// <param name="fieldName">Vector field to index.</param>
+    /// <param name="metric">Distance metric to use.</param>
     /// <param name="m">Graph connectivity (default: 16). Higher = better recall, more memory.</param>
     /// <param name="efConstruction">Build-time exploration factor (default: 200). Higher = better recall, slower build.</param>
+    /// <param name="quantization">Quantization type for reduced memory usage.</param>
     public void CreateHnswIndex(string fieldName, MetricType metric = MetricType.Cosine,
         int m = 16, int efConstruction = 200, QuantizationType quantization = QuantizationType.Undefined)
     {

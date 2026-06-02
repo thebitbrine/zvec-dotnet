@@ -5,14 +5,20 @@ using Zvec.Native;
 namespace Zvec;
 
 /// <summary>
-/// Document builder. Wraps a native zvec_doc_t handle.
-/// Insert borrows the handle (const), so doc remains valid after insert and must be disposed.
+/// Represents a document to insert, update, or upsert into a collection.
+/// Each document has a primary key and typed field values.
+/// Implements IDisposable -- caller must dispose after use. Insert borrows
+/// the handle, so the document remains valid after insertion.
 /// </summary>
 public class ZvecDocument : IDisposable
 {
     private nint _handle;
     private bool _disposed;
 
+    /// <summary>
+    /// Create a new document with the given primary key.
+    /// </summary>
+    /// <param name="primaryKey">Unique identifier for this document.</param>
     public ZvecDocument(string primaryKey)
     {
         _handle = NativeMethods.zvec_doc_create();
@@ -31,6 +37,11 @@ public class ZvecDocument : IDisposable
         }
     }
 
+    /// <summary>
+    /// Set a float32 vector field value.
+    /// </summary>
+    /// <param name="fieldName">Name of the vector field (must match schema).</param>
+    /// <param name="vector">Vector data. Length must match the field's dimension.</param>
     public unsafe void SetVector(string fieldName, float[] vector)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -43,6 +54,7 @@ public class ZvecDocument : IDisposable
         }
     }
 
+    /// <summary>Set a string field value.</summary>
     public unsafe void SetString(string fieldName, string value)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -56,6 +68,7 @@ public class ZvecDocument : IDisposable
         }
     }
 
+    /// <summary>Set a 32-bit integer field value.</summary>
     public unsafe void SetInt32(string fieldName, int value)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -65,6 +78,7 @@ public class ZvecDocument : IDisposable
                 &value, (nuint)sizeof(int)));
     }
 
+    /// <summary>Set a 64-bit integer field value.</summary>
     public unsafe void SetInt64(string fieldName, long value)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -74,6 +88,7 @@ public class ZvecDocument : IDisposable
                 &value, (nuint)sizeof(long)));
     }
 
+    /// <summary>Set a float field value.</summary>
     public unsafe void SetFloat(string fieldName, float value)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -83,6 +98,7 @@ public class ZvecDocument : IDisposable
                 &value, (nuint)sizeof(float)));
     }
 
+    /// <summary>Set a double field value.</summary>
     public unsafe void SetDouble(string fieldName, double value)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -92,6 +108,7 @@ public class ZvecDocument : IDisposable
                 &value, (nuint)sizeof(double)));
     }
 
+    /// <summary>Set a boolean field value.</summary>
     public unsafe void SetBool(string fieldName, bool value)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -102,6 +119,7 @@ public class ZvecDocument : IDisposable
                 &b, (nuint)sizeof(byte)));
     }
 
+    /// <inheritdoc/>
     public void Dispose()
     {
         if (_disposed) return;
