@@ -32,5 +32,9 @@ c_api.h
 # Spec and planning docs (local only)
 block.plan.md
 
+# Secrets
+nuget.key
+*.key
+
 # Temp files
 *.tmp
