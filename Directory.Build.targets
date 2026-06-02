@@ -1,7 +1,21 @@
 <Project>
-  <!-- Copy native DLLs to output for local development -->
+  <!-- Copy native libraries to output for local development and CI -->
   <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
-    <None Include="$(MSBuildThisFileDirectory)runtimes\win-x64\native\*.dll"
+    <None Include="$(MSBuildThisFileDirectory)runtimes\win-x64\native\*"
+          CopyToOutputDirectory="PreserveNewest"
+          Link="%(Filename)%(Extension)"
+          Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+    <None Include="$(MSBuildThisFileDirectory)runtimes\linux-x64\native\*"
+          CopyToOutputDirectory="PreserveNewest"
+          Link="%(Filename)%(Extension)"
+          Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+    <None Include="$(MSBuildThisFileDirectory)runtimes\osx-arm64\native\*"
           CopyToOutputDirectory="PreserveNewest"
           Link="%(Filename)%(Extension)"
           Visible="false" />

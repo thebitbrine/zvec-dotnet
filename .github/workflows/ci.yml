@@ -13,17 +13,15 @@ env:
 jobs:
   build-and-test:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: windows-latest
             rid: win-x64
-            lib-glob: 'bin/*.dll'
           - os: ubuntu-latest
             rid: linux-x64
-            lib-glob: 'lib/libzvec*.so*'
           - os: macos-14
             rid: osx-arm64
-            lib-glob: 'lib/libzvec*.dylib'
 
     runs-on: ${{ matrix.os }}
 
@@ -41,15 +39,31 @@ jobs:
           python-version: '3.12'
 
       - name: Download native binaries from PyPI
-        shell: bash
+        shell: python
         run: |
-          pip install --no-deps --target "$RUNNER_TEMP/zvec_pkg" zvec==$ZVEC_VERSION
-          mkdir -p "runtimes/${{ matrix.rid }}/native"
-          # Copy all native libs matching the platform pattern
-          find "$RUNNER_TEMP/zvec_pkg" -name "*.dll" -o -name "*.so" -o -name "*.so.*" -o -name "*.dylib" | while read f; do
-            cp "$f" "runtimes/${{ matrix.rid }}/native/"
-          done
-          ls -la "runtimes/${{ matrix.rid }}/native/"
+          import subprocess, shutil, os, glob
+
+          rid = "${{ matrix.rid }}"
+          dest = os.path.join("runtimes", rid, "native")
+          os.makedirs(dest, exist_ok=True)
+
+          tmp = os.path.join(os.environ.get("RUNNER_TEMP", "/tmp"), "zvec_pkg")
+          subprocess.check_call(["pip", "install", "--no-deps", "--target", tmp, "zvec==${{ env.ZVEC_VERSION }}"])
+
+          # Copy all native libs (dll, so, dylib)
+          for ext in ("*.dll", "*.so", "*.so.*", "*.dylib"):
+              for root, dirs, files in os.walk(tmp):
+                  import fnmatch
+                  for f in files:
+                      if fnmatch.fnmatch(f, ext):
+                          src = os.path.join(root, f)
+                          shutil.copy2(src, dest)
+                          print(f"Copied: {src} -> {dest}/{f}")
+
+          print(f"\nContents of {dest}:")
+          for f in os.listdir(dest):
+              size = os.path.getsize(os.path.join(dest, f))
+              print(f"  {f} ({size // 1024 // 1024} MB)")
 
       - name: Build
         run: dotnet build --configuration Release
@@ -59,7 +73,7 @@ jobs:
 
   pack:
     needs: build-and-test
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
@@ -76,18 +90,30 @@ jobs:
           python-version: '3.12'
 
       - name: Download native binaries for all platforms
-        shell: bash
+        shell: python
         run: |
-          for platform in "win_amd64:win-x64:bin/*.dll" "manylinux_2_28_x86_64:linux-x64:lib/libzvec*" "macosx_11_0_arm64:osx-arm64:lib/libzvec*"; do
-            IFS=':' read -r pyplat rid glob <<< "$platform"
-            dir="$RUNNER_TEMP/zvec_$rid"
-            pip install --no-deps --target "$dir" --platform "$pyplat" --python-version 3.12 --only-binary :all: zvec==$ZVEC_VERSION
-            mkdir -p "runtimes/$rid/native"
-            find "$dir" -name "*.dll" -o -name "*.so" -o -name "*.so.*" -o -name "*.dylib" | while read f; do
-              cp "$f" "runtimes/$rid/native/"
-            done
-          done
-          find runtimes -type f | head -20
+          import subprocess, shutil, os, fnmatch
+
+          platforms = {
+              "win_amd64": "win-x64",
+              "manylinux_2_28_x86_64": "linux-x64",
+              "macosx_11_0_arm64": "osx-arm64",
+          }
+
+          for pyplat, rid in platforms.items():
+              dest = os.path.join("runtimes", rid, "native")
+              os.makedirs(dest, exist_ok=True)
+              tmp = os.path.join(os.environ.get("RUNNER_TEMP", "/tmp"), f"zvec_{rid}")
+              subprocess.check_call([
+                  "pip", "install", "--no-deps", "--target", tmp,
+                  "--platform", pyplat, "--python-version", "3.12",
+                  "--only-binary", ":all:", "zvec==${{ env.ZVEC_VERSION }}"
+              ])
+              for root, dirs, files in os.walk(tmp):
+                  for f in files:
+                      if any(fnmatch.fnmatch(f, p) for p in ("*.dll", "*.so", "*.so.*", "*.dylib")):
+                          shutil.copy2(os.path.join(root, f), dest)
+                          print(f"  {rid}: {f}")
 
       - name: Pack
         run: dotnet pack src/Zvec/Zvec.csproj --configuration Release --output ./nupkg
