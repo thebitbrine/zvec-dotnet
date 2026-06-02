@@ -35,8 +35,9 @@ using (var doc = new ZvecDocument("doc_1"))
     collection.Insert(doc);
 }
 
-// Build the index
+// Register the index and build the HNSW graph
 collection.CreateIndex("embedding");
+collection.Optimize();  // actually builds the graph; skip for small collections
 
 // Query
 using var query = VectorQuery.For("embedding", queryVector, topK: 10);
@@ -90,7 +91,7 @@ void Delete(string primaryKey)
 
 // Index and query
 void CreateIndex(string fieldName, IndexType type, MetricType metric)
-void Optimize()   // rebuilds index graph, merges segments
+void Optimize()   // builds the HNSW graph, merges segments -- call after bulk inserts
 IReadOnlyList<SearchResult> Query(VectorQuery query)
 
 // Lifecycle
