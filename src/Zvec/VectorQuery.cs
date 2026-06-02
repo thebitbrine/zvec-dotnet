@@ -36,6 +36,16 @@ public class VectorQuery : IDisposable
         return new VectorQuery(handle);
     }
 
+    /// <summary>
+    /// Add a filter expression to the query (e.g. "year > 2020 AND category = 'science'").
+    /// </summary>
+    public VectorQuery WithFilter(string filterExpression)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ZvecError.ThrowIfFailed(NativeMethods.zvec_vector_query_set_filter(_handle, filterExpression));
+        return this;
+    }
+
     internal nint Handle
     {
         get

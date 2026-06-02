@@ -45,4 +45,23 @@ internal static partial class NativeMethods
 
     [LibraryImport(LibName, EntryPoint = "zvec_collection_optimize")]
     internal static partial uint zvec_collection_optimize(nint collection);
+
+    [LibraryImport(LibName, EntryPoint = "zvec_collection_drop_index", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial uint zvec_collection_drop_index(nint collection, string fieldName);
+
+    // =========================================================================
+    // DDL (schema evolution)
+    // =========================================================================
+
+    // field_schema is deep-copied, caller retains ownership
+    [LibraryImport(LibName, EntryPoint = "zvec_collection_add_column", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial uint zvec_collection_add_column(nint collection, nint fieldSchema, string? expression);
+
+    [LibraryImport(LibName, EntryPoint = "zvec_collection_drop_column", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial uint zvec_collection_drop_column(nint collection, string columnName);
+
+    // new_name can be null (no rename), new_schema can be 0 (no schema change)
+    [LibraryImport(LibName, EntryPoint = "zvec_collection_alter_column", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial uint zvec_collection_alter_column(
+        nint collection, string columnName, string? newName, nint newSchema);
 }

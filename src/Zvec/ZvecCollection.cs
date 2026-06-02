@@ -66,10 +66,53 @@ public class ZvecCollection : IDisposable
     }
 
     /// <summary>
-    /// Create an index on a vector field.
+    /// Create an index on a vector field with default HNSW parameters.
     /// </summary>
     public void CreateIndex(string fieldName, IndexType indexType = IndexType.Hnsw,
         MetricType metric = MetricType.Cosine)
+    {
+        CreateIndex(fieldName, indexType, metric, QuantizationType.Undefined);
+    }
+
+    /// <summary>
+    /// Create an HNSW index with explicit tuning parameters.
+    /// </summary>
+    /// <param name="m">Graph connectivity (default: 16). Higher = better recall, more memory.</param>
+    /// <param name="efConstruction">Build-time exploration factor (default: 200). Higher = better recall, slower build.</param>
+    public void CreateHnswIndex(string fieldName, MetricType metric = MetricType.Cosine,
+        int m = 16, int efConstruction = 200, QuantizationType quantization = QuantizationType.Undefined)
+    {
+        ThrowIfDisposed();
+
+        nint paramsHandle = NativeMethods.zvec_index_params_create((uint)IndexType.Hnsw);
+        if (paramsHandle == 0)
+            throw new ZvecException(ZvecErrorCode.InternalError, "Failed to create index params");
+
+        try
+        {
+            ZvecError.ThrowIfFailed(
+                NativeMethods.zvec_index_params_set_metric_type(paramsHandle, (uint)metric));
+            ZvecError.ThrowIfFailed(
+                NativeMethods.zvec_index_params_set_hnsw_params(paramsHandle, m, efConstruction));
+
+            if (quantization != QuantizationType.Undefined)
+                ZvecError.ThrowIfFailed(
+                    NativeMethods.zvec_index_params_set_quantize_type(paramsHandle, (uint)quantization));
+
+            ZvecError.ThrowIfFailed(
+                NativeMethods.zvec_collection_create_index(_handle, fieldName, paramsHandle));
+        }
+        finally
+        {
+            NativeMethods.zvec_index_params_destroy(paramsHandle);
+        }
+    }
+
+    /// <summary>
+    /// Create an index with quantization and optional type-specific parameters.
+    /// </summary>
+    public void CreateIndex(string fieldName, IndexType indexType, MetricType metric,
+        QuantizationType quantization)
     {
         ThrowIfDisposed();
 
@@ -82,7 +125,10 @@ public class ZvecCollection : IDisposable
             ZvecError.ThrowIfFailed(
                 NativeMethods.zvec_index_params_set_metric_type(paramsHandle, (uint)metric));
 
-            // create_index copies params, caller retains ownership
+            if (quantization != QuantizationType.Undefined)
+                ZvecError.ThrowIfFailed(
+                    NativeMethods.zvec_index_params_set_quantize_type(paramsHandle, (uint)quantization));
+
             ZvecError.ThrowIfFailed(
                 NativeMethods.zvec_collection_create_index(_handle, fieldName, paramsHandle));
         }
@@ -99,6 +145,60 @@ public class ZvecCollection : IDisposable
     {
         ThrowIfDisposed();
         ZvecError.ThrowIfFailed(NativeMethods.zvec_collection_optimize(_handle));
+    }
+
+    /// <summary>
+    /// Drop an index from a field.
+    /// </summary>
+    public void DropIndex(string fieldName)
+    {
+        ThrowIfDisposed();
+        ZvecError.ThrowIfFailed(NativeMethods.zvec_collection_drop_index(_handle, fieldName));
+    }
+
+    // =========================================================================
+    // Schema evolution (DDL)
+    // =========================================================================
+
+    /// <summary>
+    /// Add a scalar column to the collection.
+    /// </summary>
+    public void AddColumn(string name, DataType dataType, bool nullable = true, string? defaultExpression = null)
+    {
+        ThrowIfDisposed();
+
+        nint fieldHandle = NativeMethods.zvec_field_schema_create(name, (uint)dataType, nullable, 0);
+        if (fieldHandle == 0)
+            throw new ZvecException(ZvecErrorCode.InternalError, "Failed to create field schema");
+
+        try
+        {
+            ZvecError.ThrowIfFailed(
+                NativeMethods.zvec_collection_add_column(_handle, fieldHandle, defaultExpression));
+        }
+        finally
+        {
+            NativeMethods.zvec_field_schema_destroy(fieldHandle);
+        }
+    }
+
+    /// <summary>
+    /// Drop a column from the collection.
+    /// </summary>
+    public void DropColumn(string columnName)
+    {
+        ThrowIfDisposed();
+        ZvecError.ThrowIfFailed(NativeMethods.zvec_collection_drop_column(_handle, columnName));
+    }
+
+    /// <summary>
+    /// Rename a column.
+    /// </summary>
+    public void RenameColumn(string oldName, string newName)
+    {
+        ThrowIfDisposed();
+        ZvecError.ThrowIfFailed(
+            NativeMethods.zvec_collection_alter_column(_handle, oldName, newName, 0));
     }
 
     // =========================================================================

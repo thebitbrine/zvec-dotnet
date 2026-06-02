@@ -43,6 +43,15 @@ internal static partial class NativeMethods
     [LibraryImport(LibName, EntryPoint = "zvec_index_params_set_hnsw_params")]
     internal static partial uint zvec_index_params_set_hnsw_params(nint indexParams, int m, int efConstruction);
 
+    // zvec_error_code_t zvec_index_params_set_quantize_type(params*, quantize_type)
+    [LibraryImport(LibName, EntryPoint = "zvec_index_params_set_quantize_type")]
+    internal static partial uint zvec_index_params_set_quantize_type(nint indexParams, uint quantizeType);
+
+    // zvec_error_code_t zvec_index_params_set_ivf_params(params*, n_list, n_iters, use_soar)
+    [LibraryImport(LibName, EntryPoint = "zvec_index_params_set_ivf_params")]
+    internal static partial uint zvec_index_params_set_ivf_params(
+        nint indexParams, int nList, int nIters, [MarshalAs(UnmanagedType.U1)] bool useSoar);
+
     // =========================================================================
     // Collection schema
     // =========================================================================
