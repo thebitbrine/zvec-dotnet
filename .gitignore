@@ -1,0 +1,36 @@
+# Build outputs
+bin/
+obj/
+*.user
+*.suo
+
+# Native build artifacts
+native/_build/
+
+# IDE
+.vs/
+*.sln.docstates
+
+# NuGet
+*.nupkg
+
+# OS
+Thumbs.db
+.DS_Store
+
+# State files (managed by ClaudeState)
+.claude-state.json
+.claude/
+CLAUDE.md
+
+# Native binaries (too large for git, downloaded separately)
+runtimes/
+
+# Downloaded reference headers
+c_api.h
+
+# Spec and planning docs (local only)
+block.plan.md
+
+# Temp files
+*.tmp

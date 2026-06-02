@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Zvec.Native</RootNamespace>
+    <AssemblyName>Zvec.Native</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Zvec" />
+    <InternalsVisibleTo Include="Zvec.Tests" />
+  </ItemGroup>
+</Project>

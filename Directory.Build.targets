@@ -1,0 +1,9 @@
+<Project>
+  <!-- Copy native DLLs to output for local development -->
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <None Include="$(MSBuildThisFileDirectory)runtimes\win-x64\native\*.dll"
+          CopyToOutputDirectory="PreserveNewest"
+          Link="%(Filename)%(Extension)"
+          Visible="false" />
+  </ItemGroup>
+</Project>

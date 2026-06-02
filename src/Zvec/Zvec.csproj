@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Zvec</RootNamespace>
+    <AssemblyName>Zvec</AssemblyName>
+    <PackageId>Zvec</PackageId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Zvec.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Zvec.Native\Zvec.Native.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)..\..\runtimes\**\*"
+          Pack="true"
+          PackagePath="runtimes/" />
+  </ItemGroup>
+</Project>
