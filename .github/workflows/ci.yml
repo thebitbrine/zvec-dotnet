@@ -8,11 +8,48 @@ on:
     branches: [master]
   workflow_dispatch:
 
-env:
-  ZVEC_VERSION: '0.4.0'
-
 jobs:
+  build-native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            script: powershell -File native/build-native.ps1 -Tag main
+          - os: ubuntu-latest
+            rid: linux-x64
+            script: bash native/build-native.sh main
+          - os: macos-14
+            rid: osx-arm64
+            script: bash native/build-native.sh main
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 240
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            sudo apt-get update && sudo apt-get install -y cmake build-essential
+          fi
+
+      - name: Build zvec native library
+        run: ${{ matrix.script }}
+        timeout-minutes: 120
+
+      - name: Upload native binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.rid }}
+          path: runtimes/${{ matrix.rid }}/native/
+          retention-days: 7
+
   build-and-test:
+    needs: build-native
     strategy:
       fail-fast: false
       matrix:
@@ -25,6 +62,7 @@ jobs:
             rid: osx-arm64
 
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
@@ -34,47 +72,23 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Download native binary
+        uses: actions/download-artifact@v4
         with:
-          python-version: '3.12'
-
-      - name: Download native binaries from PyPI
-        shell: python
-        run: |
-          import subprocess, shutil, os, fnmatch
-
-          rid = "${{ matrix.rid }}"
-          dest = os.path.join("runtimes", rid, "native")
-          os.makedirs(dest, exist_ok=True)
-
-          tmp = os.path.join(os.environ.get("RUNNER_TEMP", "/tmp"), "zvec_pkg")
-          subprocess.check_call(["pip", "install", "--no-deps", "--target", tmp, "zvec==${{ env.ZVEC_VERSION }}"])
-
-          for root, dirs, files in os.walk(tmp):
-              for f in files:
-                  if any(fnmatch.fnmatch(f, p) for p in ("*.dll", "*.so", "*.so.*", "*.dylib")):
-                      src = os.path.join(root, f)
-                      shutil.copy2(src, dest)
-                      print(f"Copied: {src} -> {dest}/{f}")
-
-          print(f"\nContents of {dest}:")
-          for f in os.listdir(dest):
-              size = os.path.getsize(os.path.join(dest, f))
-              print(f"  {f} ({size // 1024 // 1024} MB)")
+          name: native-${{ matrix.rid }}
+          path: runtimes/${{ matrix.rid }}/native/
 
       - name: Build
         run: dotnet build --configuration Release
 
       - name: Test
-        run: >
-          dotnet test --configuration Release --verbosity minimal
-          --filter "FullyQualifiedName!~LargeScale&FullyQualifiedName!~HybridSearch&FullyQualifiedName!~MultiQuery&FullyQualifiedName!~SparseVector.SparseVector_Insert"
+        run: dotnet test --configuration Release --verbosity minimal --filter "FullyQualifiedName!~LargeScale"
 
-  pack:
+  pack-and-release:
     needs: build-and-test
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
@@ -84,41 +98,27 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Download all native binaries
+        uses: actions/download-artifact@v4
         with:
-          python-version: '3.12'
+          path: artifacts/
 
-      - name: Download native binaries for all platforms
-        shell: python
+      - name: Arrange runtimes for NuGet
+        shell: bash
         run: |
-          import subprocess, shutil, os, fnmatch
+          for rid in win-x64 linux-x64 osx-arm64; do
+            mkdir -p "runtimes/$rid/native"
+            if [ -d "artifacts/native-$rid" ]; then
+              cp artifacts/native-$rid/* "runtimes/$rid/native/"
+            fi
+          done
+          echo "Runtimes:"
+          find runtimes -type f -exec ls -lh {} \;
 
-          platforms = {
-              "win_amd64": "win-x64",
-              "manylinux_2_28_x86_64": "linux-x64",
-              "macosx_11_0_arm64": "osx-arm64",
-          }
-
-          for pyplat, rid in platforms.items():
-              dest = os.path.join("runtimes", rid, "native")
-              os.makedirs(dest, exist_ok=True)
-              tmp = os.path.join(os.environ.get("RUNNER_TEMP", "/tmp"), f"zvec_{rid}")
-              subprocess.check_call([
-                  "pip", "install", "--no-deps", "--target", tmp,
-                  "--platform", pyplat, "--python-version", "3.12",
-                  "--only-binary", ":all:", "zvec==${{ env.ZVEC_VERSION }}"
-              ])
-              for root, dirs, files in os.walk(tmp):
-                  for f in files:
-                      if any(fnmatch.fnmatch(f, p) for p in ("*.dll", "*.so", "*.so.*", "*.dylib")):
-                          shutil.copy2(os.path.join(root, f), dest)
-                          print(f"  {rid}: {f}")
-
-      - name: Pack
+      - name: Pack NuGet
         run: dotnet pack src/Zvec/Zvec.csproj --configuration Release --output ./nupkg
 
-      - name: Upload package artifact
+      - name: Upload NuGet artifact
         uses: actions/upload-artifact@v4
         with:
           name: nuget-package
@@ -132,10 +132,10 @@ jobs:
         run: |
           mkdir -p release-archives
           for rid in win-x64 linux-x64 osx-arm64; do
-            if [ -d "runtimes/$rid/native" ]; then
-              cd "runtimes/$rid/native"
-              zip ../../../release-archives/zvec-native-$rid.zip *
-              cd ../../..
+            if [ -d "artifacts/native-$rid" ]; then
+              cd "artifacts/native-$rid"
+              zip ../../release-archives/zvec-native-$rid.zip *
+              cd ../..
             fi
           done
 
