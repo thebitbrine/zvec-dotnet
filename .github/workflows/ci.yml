@@ -40,7 +40,7 @@ jobs:
 
       - name: Build zvec native library
         run: ${{ matrix.script }}
-        timeout-minutes: 30
+        timeout-minutes: 120
 
       - name: Upload native binary
         uses: actions/upload-artifact@v4
