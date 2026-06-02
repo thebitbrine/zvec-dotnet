@@ -40,12 +40,14 @@ jobs:
 
       - name: Build zvec native library
         run: ${{ matrix.script }}
+        timeout-minutes: 30
 
       - name: Upload native binary
         uses: actions/upload-artifact@v4
         with:
           name: native-${{ matrix.rid }}
           path: runtimes/${{ matrix.rid }}/native/
+          retention-days: 7
 
   build-and-test:
     needs: build-native
@@ -82,7 +84,7 @@ jobs:
       - name: Test
         run: dotnet test --configuration Release --verbosity minimal --filter "FullyQualifiedName!~LargeScale"
 
-  pack:
+  release:
     needs: build-and-test
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
@@ -98,26 +100,24 @@ jobs:
       - name: Download all native binaries
         uses: actions/download-artifact@v4
         with:
-          pattern: native-*
-          path: runtimes/
-          merge-multiple: false
+          path: artifacts/
 
-      - name: Arrange runtimes
+      - name: Arrange runtimes for NuGet
         shell: bash
         run: |
-          # download-artifact creates native-win-x64/, native-linux-x64/, native-osx-arm64/
-          # We need runtimes/win-x64/native/, etc.
-          for dir in runtimes/native-*/; do
-            rid=$(basename "$dir" | sed 's/^native-//')
+          for rid in win-x64 linux-x64 osx-arm64; do
             mkdir -p "runtimes/$rid/native"
-            cp "$dir"/* "runtimes/$rid/native/" 2>/dev/null || true
+            if [ -d "artifacts/native-$rid" ]; then
+              cp artifacts/native-$rid/* "runtimes/$rid/native/"
+            fi
           done
-          find runtimes -type f | head -20
+          echo "Runtimes:"
+          find runtimes -type f -exec ls -lh {} \;
 
-      - name: Pack
+      - name: Pack NuGet
         run: dotnet pack src/Zvec/Zvec.csproj --configuration Release --output ./nupkg
 
-      - name: Upload package artifact
+      - name: Upload NuGet package
         uses: actions/upload-artifact@v4
         with:
           name: nuget-package
@@ -125,3 +125,23 @@ jobs:
 
       - name: Push to NuGet
         run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+      - name: Create zip archives per platform
+        shell: bash
+        run: |
+          mkdir -p release-archives
+          for rid in win-x64 linux-x64 osx-arm64; do
+            if [ -d "artifacts/native-$rid" ]; then
+              cd artifacts/native-$rid
+              zip ../../release-archives/zvec-native-$rid.zip *
+              cd ../..
+            fi
+          done
+
+      - name: Upload binaries to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-archives/*.zip
+            nupkg/*.nupkg
+            nupkg/*.snupkg

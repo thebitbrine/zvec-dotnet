@@ -31,7 +31,9 @@ cmake -S $SrcDir -B $CmakeBuildDir `
     -DCMAKE_BUILD_TYPE=Release `
     -DBUILD_C_BINDINGS=ON `
     -DBUILD_PYTHON_BINDINGS=OFF `
-    -DBUILD_TOOLS=OFF
+    -DBUILD_TOOLS=OFF `
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 `
+    -Wno-dev
 
 if ($LASTEXITCODE -ne 0) { throw "cmake configure failed" }
 

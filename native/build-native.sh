@@ -32,12 +32,17 @@ fi
 
 # Configure
 CMAKE_BUILD_DIR="$BUILD_DIR/cmake-build"
+echo "CMake version: $(cmake --version | head -1)"
 echo "Configuring cmake..."
+# CMAKE_POLICY_VERSION_MINIMUM works around older thirdparty CMakeLists
+# that use cmake_minimum_required(VERSION 2.x) which cmake 4+ rejects
 cmake -S "$SRC_DIR" -B "$CMAKE_BUILD_DIR" \
     -DCMAKE_BUILD_TYPE=Release \
     -DBUILD_C_BINDINGS=ON \
     -DBUILD_PYTHON_BINDINGS=OFF \
-    -DBUILD_TOOLS=OFF
+    -DBUILD_TOOLS=OFF \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+    -Wno-dev
 
 # Build
 echo "Building zvec_c_api..."
