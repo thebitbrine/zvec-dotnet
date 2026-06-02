@@ -3,6 +3,7 @@
     <RootNamespace>Zvec</RootNamespace>
     <AssemblyName>Zvec</AssemblyName>
     <PackageId>Zvec</PackageId>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,5 +18,8 @@
     <None Include="$(MSBuildThisFileDirectory)..\..\runtimes\**\*"
           Pack="true"
           PackagePath="runtimes/" />
+    <None Include="$(MSBuildThisFileDirectory)..\..\README.md"
+          Pack="true"
+          PackagePath="\" />
   </ItemGroup>
 </Project>
