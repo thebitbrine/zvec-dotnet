@@ -213,6 +213,37 @@ public class ZvecCollection : IDisposable
     // =========================================================================
 
     /// <summary>
+    /// Execute a multi-vector query with optional reranking (hybrid search).
+    /// </summary>
+    public unsafe IReadOnlyList<SearchResult> Query(MultiQuery query)
+    {
+        ThrowIfDisposed();
+
+        ZvecError.ThrowIfFailed(
+            NativeMethods.zvec_collection_multi_query(_handle, query.Handle, out nint* resultDocs, out nuint resultCount));
+
+        var results = new List<SearchResult>((int)resultCount);
+
+        try
+        {
+            for (nuint i = 0; i < resultCount; i++)
+            {
+                nint docPtr = resultDocs[i];
+                nint pkPtr = NativeMethods.zvec_doc_get_pk_pointer(docPtr);
+                string pk = Marshal.PtrToStringUTF8(pkPtr) ?? "";
+                float score = NativeMethods.zvec_doc_get_score(docPtr);
+                results.Add(new SearchResult(pk, score));
+            }
+        }
+        finally
+        {
+            NativeMethods.zvec_docs_free((nint)resultDocs, resultCount);
+        }
+
+        return results;
+    }
+
+    /// <summary>
     /// Execute a vector similarity search.
     /// </summary>
     public unsafe IReadOnlyList<SearchResult> Query(VectorQuery query)

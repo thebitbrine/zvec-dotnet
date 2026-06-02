@@ -61,6 +61,44 @@ public class ZvecSchema
     }
 
     /// <summary>
+    /// Add a sparse vector field for BM25 or learned sparse embeddings.
+    /// </summary>
+    public void AddSparseVector(string name, MetricType metric = MetricType.InnerProduct,
+        IndexType indexType = IndexType.Hnsw)
+    {
+        nint fieldHandle = NativeMethods.zvec_field_schema_create(
+            name, (uint)DataType.SparseVectorFp32, false, 0);
+        if (fieldHandle == 0)
+            throw new ZvecException(ZvecErrorCode.InternalError, "Failed to create sparse vector field schema");
+
+        try
+        {
+            nint paramsHandle = NativeMethods.zvec_index_params_create((uint)indexType);
+            if (paramsHandle == 0)
+                throw new ZvecException(ZvecErrorCode.InternalError, "Failed to create index params");
+
+            try
+            {
+                ZvecError.ThrowIfFailed(
+                    NativeMethods.zvec_index_params_set_metric_type(paramsHandle, (uint)metric));
+                ZvecError.ThrowIfFailed(
+                    NativeMethods.zvec_field_schema_set_index_params(fieldHandle, paramsHandle));
+            }
+            finally
+            {
+                NativeMethods.zvec_index_params_destroy(paramsHandle);
+            }
+
+            ZvecError.ThrowIfFailed(
+                NativeMethods.zvec_collection_schema_add_field(_schemaHandle, fieldHandle));
+        }
+        finally
+        {
+            NativeMethods.zvec_field_schema_destroy(fieldHandle);
+        }
+    }
+
+    /// <summary>
     /// Add a scalar field (string, int32, float, etc).
     /// </summary>
     public void AddScalar(string name, DataType dataType, bool nullable = false)
