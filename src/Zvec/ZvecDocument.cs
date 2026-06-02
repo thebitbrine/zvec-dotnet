@@ -144,34 +144,42 @@ public class ZvecDocument : IDisposable
     }
 
     /// <summary>
-    /// Set a string array field value. Uses zvec_string_array_t for correct marshaling.
+    /// Set a string array field value.
     /// </summary>
-    public void SetStringArray(string fieldName, string[] values)
+    public unsafe void SetStringArray(string fieldName, string[] values)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        nint arrayHandle = NativeMethods.zvec_string_array_create((nuint)values.Length);
-        if (arrayHandle == 0)
-            throw new ZvecException(ZvecErrorCode.InternalError, "Failed to create string array");
+        // Serialize as null-terminated C strings concatenated: "str1\0str2\0str3\0"
+        // The C code dispatches based on value_size % sizeof(void*):
+        //   aligned -> treats as zvec_string_t** (wrong for us)
+        //   unaligned -> treats as null-terminated strings (correct)
+        // So we pad to ensure the total size is NOT 8-byte aligned.
 
-        try
+        var utf8Strings = values.Select(Encoding.UTF8.GetBytes).ToArray();
+        int rawSize = utf8Strings.Sum(s => s.Length + 1);
+
+        // Pad if size would be 8-byte aligned
+        int paddedSize = rawSize;
+        if (paddedSize % sizeof(nint) == 0)
+            paddedSize++;
+
+        var buffer = new byte[paddedSize];
+        int offset = 0;
+        foreach (var s in utf8Strings)
         {
-            for (int i = 0; i < values.Length; i++)
-                NativeMethods.zvec_string_array_add(arrayHandle, (nuint)i, values[i]);
-
-            // Pass the zvec_string_array_t* as the value, with size = pointer size
-            // so the C code recognizes it as a string array
-            unsafe
-            {
-                ZvecError.ThrowIfFailed(
-                    NativeMethods.zvec_doc_add_field_by_value(
-                        _handle, fieldName, (uint)DataType.ArrayString,
-                        &arrayHandle, (nuint)sizeof(nint)));
-            }
+            Array.Copy(s, 0, buffer, offset, s.Length);
+            offset += s.Length;
+            buffer[offset++] = 0;
         }
-        finally
+        // remaining bytes are already 0 from array init
+
+        fixed (byte* ptr = buffer)
         {
-            NativeMethods.zvec_string_array_destroy(arrayHandle);
+            ZvecError.ThrowIfFailed(
+                NativeMethods.zvec_doc_add_field_by_value(
+                    _handle, fieldName, (uint)DataType.ArrayString,
+                    ptr, (nuint)paddedSize));
         }
     }
 

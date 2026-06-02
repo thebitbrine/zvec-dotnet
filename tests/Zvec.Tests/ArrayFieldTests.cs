@@ -114,10 +114,49 @@ public class ArrayFieldTests : IDisposable
         col.Insert(doc);
     }
 
-    // CONTAIN_ANY filter syntax: "fieldname CONTAIN_ANY ('value1', 'value2')"
-    // Needs further investigation on invert index + string array interop.
-    // The filter parses correctly but returns 0 results -- likely the string array
-    // data format via zvec_string_array_t needs different handling for invert indexing.
+    // =========================================================================
+    // CONTAIN_ANY filter on indexed array fields
+    // Syntax: "fieldname CONTAIN_ANY ('value1', 'value2')"
+    // =========================================================================
+
+    [Fact]
+    public void ContainAny_Filter_ReturnsMatchingDocs()
+    {
+        using var col = ZvecCollection.CreateAndOpen(CollPath("contain_any"), schema =>
+        {
+            schema.AddVector("vec", 8, MetricType.Cosine);
+            schema.AddArray("concepts", DataType.ArrayString, indexed: true);
+        });
+
+        var rng = new Random(42);
+        string[][] docConcepts = new[]
+        {
+            new[] { "physics", "quantum" },
+            new[] { "biology", "genetics" },
+            new[] { "physics", "relativity" },
+            new[] { "chemistry", "organic" },
+            new[] { "biology", "evolution" },
+            new[] { "physics", "thermodynamics" },
+        };
+
+        for (int i = 0; i < docConcepts.Length; i++)
+        {
+            using var doc = new ZvecDocument($"doc_{i}");
+            doc.SetVector("vec", RandomVector(8, rng));
+            doc.SetStringArray("concepts", docConcepts[i]);
+            col.Insert(doc);
+        }
+
+        col.CreateIndex("vec");
+
+        using var query = VectorQuery.For("vec", RandomVector(8, new Random(99)), 10)
+            .WithFilter("concepts CONTAIN_ANY ('physics')");
+
+        var results = col.Query(query);
+
+        // docs 0, 2, 5 have "physics"
+        Assert.True(results.Count > 0, "Expected results with physics concept");
+    }
 
     // =========================================================================
     // Multiple inserts with array fields
