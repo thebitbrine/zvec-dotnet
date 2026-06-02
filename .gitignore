@@ -30,6 +30,7 @@ runtimes/
 c_api.h
 
 # Spec and planning docs (local only)
+zvec-dotnet-spec.md
 block.plan.md
 
 # Secrets

@@ -108,6 +108,118 @@ public class ZvecDocument : IDisposable
                 &value, (nuint)sizeof(double)));
     }
 
+    /// <summary>
+    /// Set a sparse vector field. Format: [nnz:uint32][indices:uint32[nnz]][values:float[nnz]]
+    /// </summary>
+    /// <param name="fieldName">Sparse vector field name.</param>
+    /// <param name="sparseVector">Non-zero entries as dimension_index -> weight.</param>
+    public unsafe void SetSparseVector(string fieldName, Dictionary<uint, float> sparseVector)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        int nnz = sparseVector.Count;
+        // Format: [nnz:uint32][indices:uint32 * nnz][values:float * nnz]
+        int bufferSize = sizeof(uint) + nnz * sizeof(uint) + nnz * sizeof(float);
+        var buffer = new byte[bufferSize];
+
+        fixed (byte* ptr = buffer)
+        {
+            *(uint*)ptr = (uint)nnz;
+            uint* indices = (uint*)(ptr + sizeof(uint));
+            float* values = (float*)(ptr + sizeof(uint) + nnz * sizeof(uint));
+
+            int i = 0;
+            foreach (var kv in sparseVector)
+            {
+                indices[i] = kv.Key;
+                values[i] = kv.Value;
+                i++;
+            }
+
+            ZvecError.ThrowIfFailed(
+                NativeMethods.zvec_doc_add_field_by_value(
+                    _handle, fieldName, (uint)DataType.SparseVectorFp32,
+                    ptr, (nuint)bufferSize));
+        }
+    }
+
+    /// <summary>
+    /// Set a string array field value. Uses zvec_string_array_t for correct marshaling.
+    /// </summary>
+    public void SetStringArray(string fieldName, string[] values)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        nint arrayHandle = NativeMethods.zvec_string_array_create((nuint)values.Length);
+        if (arrayHandle == 0)
+            throw new ZvecException(ZvecErrorCode.InternalError, "Failed to create string array");
+
+        try
+        {
+            for (int i = 0; i < values.Length; i++)
+                NativeMethods.zvec_string_array_add(arrayHandle, (nuint)i, values[i]);
+
+            // Pass the zvec_string_array_t* as the value, with size = pointer size
+            // so the C code recognizes it as a string array
+            unsafe
+            {
+                ZvecError.ThrowIfFailed(
+                    NativeMethods.zvec_doc_add_field_by_value(
+                        _handle, fieldName, (uint)DataType.ArrayString,
+                        &arrayHandle, (nuint)sizeof(nint)));
+            }
+        }
+        finally
+        {
+            NativeMethods.zvec_string_array_destroy(arrayHandle);
+        }
+    }
+
+    /// <summary>
+    /// Set an int32 array field value.
+    /// </summary>
+    public unsafe void SetInt32Array(string fieldName, int[] values)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        fixed (int* ptr = values)
+        {
+            ZvecError.ThrowIfFailed(
+                NativeMethods.zvec_doc_add_field_by_value(
+                    _handle, fieldName, (uint)DataType.ArrayInt32,
+                    ptr, (nuint)(values.Length * sizeof(int))));
+        }
+    }
+
+    /// <summary>
+    /// Set an int64 array field value.
+    /// </summary>
+    public unsafe void SetInt64Array(string fieldName, long[] values)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        fixed (long* ptr = values)
+        {
+            ZvecError.ThrowIfFailed(
+                NativeMethods.zvec_doc_add_field_by_value(
+                    _handle, fieldName, (uint)DataType.ArrayInt64,
+                    ptr, (nuint)(values.Length * sizeof(long))));
+        }
+    }
+
+    /// <summary>
+    /// Set a float array field value (not a vector -- a list of float scalars).
+    /// </summary>
+    public unsafe void SetFloatArray(string fieldName, float[] values)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        fixed (float* ptr = values)
+        {
+            ZvecError.ThrowIfFailed(
+                NativeMethods.zvec_doc_add_field_by_value(
+                    _handle, fieldName, (uint)DataType.ArrayFloat,
+                    ptr, (nuint)(values.Length * sizeof(float))));
+        }
+    }
+
     /// <summary>Set a boolean field value.</summary>
     public unsafe void SetBool(string fieldName, bool value)
     {

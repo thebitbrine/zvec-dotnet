@@ -57,4 +57,17 @@ internal static partial class NativeMethods
     // void* zvec_malloc(size_t size)
     [LibraryImport(LibName, EntryPoint = "zvec_malloc")]
     internal static partial nint zvec_malloc(nuint size);
+
+    // =========================================================================
+    // String array helpers
+    // =========================================================================
+
+    [LibraryImport(LibName, EntryPoint = "zvec_string_array_create")]
+    internal static partial nint zvec_string_array_create(nuint count);
+
+    [LibraryImport(LibName, EntryPoint = "zvec_string_array_add", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial void zvec_string_array_add(nint array, nuint idx, string str);
+
+    [LibraryImport(LibName, EntryPoint = "zvec_string_array_destroy")]
+    internal static partial void zvec_string_array_destroy(nint array);
 }

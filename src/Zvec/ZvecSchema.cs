@@ -99,6 +99,44 @@ public class ZvecSchema
     }
 
     /// <summary>
+    /// Add an array field (ArrayString, ArrayInt32, ArrayFloat, etc) with optional invert index for filtering.
+    /// </summary>
+    public void AddArray(string name, DataType dataType, bool indexed = false, bool nullable = false)
+    {
+        nint fieldHandle = NativeMethods.zvec_field_schema_create(
+            name, (uint)dataType, nullable, 0);
+        if (fieldHandle == 0)
+            throw new ZvecException(ZvecErrorCode.InternalError, "Failed to create array field schema");
+
+        try
+        {
+            if (indexed)
+            {
+                nint paramsHandle = NativeMethods.zvec_index_params_create((uint)IndexType.Invert);
+                if (paramsHandle == 0)
+                    throw new ZvecException(ZvecErrorCode.InternalError, "Failed to create invert index params");
+
+                try
+                {
+                    ZvecError.ThrowIfFailed(
+                        NativeMethods.zvec_field_schema_set_index_params(fieldHandle, paramsHandle));
+                }
+                finally
+                {
+                    NativeMethods.zvec_index_params_destroy(paramsHandle);
+                }
+            }
+
+            ZvecError.ThrowIfFailed(
+                NativeMethods.zvec_collection_schema_add_field(_schemaHandle, fieldHandle));
+        }
+        finally
+        {
+            NativeMethods.zvec_field_schema_destroy(fieldHandle);
+        }
+    }
+
+    /// <summary>
     /// Add a scalar field (string, int32, float, etc).
     /// </summary>
     public void AddScalar(string name, DataType dataType, bool nullable = false)
