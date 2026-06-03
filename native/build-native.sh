@@ -46,7 +46,7 @@ cmake -S "$SRC_DIR" -B "$CMAKE_BUILD_DIR" \
 
 # Build
 echo "Building zvec_c_api..."
-cmake --build "$CMAKE_BUILD_DIR" --config Release --target zvec_c_api --parallel
+cmake --build "$CMAKE_BUILD_DIR" --config Release --target zvec_c_api --parallel 2
 
 # Copy output
 mkdir -p "$OUT_DIR"

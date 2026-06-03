@@ -39,7 +39,7 @@ if ($LASTEXITCODE -ne 0) { throw "cmake configure failed" }
 
 # Build
 Write-Host "Building zvec_c_api..."
-cmake --build $CmakeBuildDir --config Release --target zvec_c_api --parallel
+cmake --build $CmakeBuildDir --config Release --target zvec_c_api --parallel 2
 if ($LASTEXITCODE -ne 0) { throw "cmake build failed" }
 
 # Copy output
