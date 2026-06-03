@@ -46,6 +46,56 @@ public class VectorQuery : IDisposable
         return this;
     }
 
+    /// <summary>
+    /// Add a full-text search expression. Requires an FTS index on a text field.
+    /// </summary>
+    /// <param name="queryString">FTS query expression (e.g. "quantum AND physics").</param>
+    public VectorQuery WithFts(string queryString)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        nint ftsHandle = NativeMethods.zvec_fts_create();
+        if (ftsHandle == 0)
+            throw new ZvecException(ZvecErrorCode.InternalError, "Failed to create FTS query");
+
+        try
+        {
+            ZvecError.ThrowIfFailed(NativeMethods.zvec_fts_set_query_string(ftsHandle, queryString));
+            ZvecError.ThrowIfFailed(NativeMethods.zvec_vector_query_set_fts(_handle, ftsHandle));
+        }
+        finally
+        {
+            NativeMethods.zvec_fts_destroy(ftsHandle);
+        }
+
+        return this;
+    }
+
+    /// <summary>
+    /// Add a natural-language full-text match. Requires an FTS index on a text field.
+    /// </summary>
+    /// <param name="matchString">Natural language text to match against.</param>
+    public VectorQuery WithFtsMatch(string matchString)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        nint ftsHandle = NativeMethods.zvec_fts_create();
+        if (ftsHandle == 0)
+            throw new ZvecException(ZvecErrorCode.InternalError, "Failed to create FTS query");
+
+        try
+        {
+            ZvecError.ThrowIfFailed(NativeMethods.zvec_fts_set_match_string(ftsHandle, matchString));
+            ZvecError.ThrowIfFailed(NativeMethods.zvec_vector_query_set_fts(_handle, ftsHandle));
+        }
+        finally
+        {
+            NativeMethods.zvec_fts_destroy(ftsHandle);
+        }
+
+        return this;
+    }
+
     internal nint Handle
     {
         get

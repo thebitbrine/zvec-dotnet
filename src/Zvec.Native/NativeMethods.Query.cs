@@ -28,6 +28,26 @@ internal static partial class NativeMethods
     internal static partial uint zvec_vector_query_set_filter(nint query, string filter);
 
     // =========================================================================
+    // FTS (full text search)
+    // =========================================================================
+
+    [LibraryImport(LibName, EntryPoint = "zvec_fts_create")]
+    internal static partial nint zvec_fts_create();
+
+    [LibraryImport(LibName, EntryPoint = "zvec_fts_destroy")]
+    internal static partial void zvec_fts_destroy(nint fts);
+
+    [LibraryImport(LibName, EntryPoint = "zvec_fts_set_query_string", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial uint zvec_fts_set_query_string(nint fts, string queryString);
+
+    [LibraryImport(LibName, EntryPoint = "zvec_fts_set_match_string", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial uint zvec_fts_set_match_string(nint fts, string matchString);
+
+    // payload is copied, caller retains ownership of fts
+    [LibraryImport(LibName, EntryPoint = "zvec_vector_query_set_fts")]
+    internal static partial uint zvec_vector_query_set_fts(nint query, nint fts);
+
+    // =========================================================================
     // Query execution
     // =========================================================================
 
