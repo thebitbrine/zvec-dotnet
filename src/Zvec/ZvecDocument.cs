@@ -118,15 +118,16 @@ public class ZvecDocument : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         int nnz = sparseVector.Count;
-        // Format: [nnz:uint32][indices:uint32 * nnz][values:float * nnz]
-        int bufferSize = sizeof(uint) + nnz * sizeof(uint) + nnz * sizeof(float);
+        // Format per zvec maintainer: [nnz:size_t][indices:uint32 * nnz][values:float * nnz]
+        // size_t is 8 bytes on 64-bit platforms
+        int bufferSize = sizeof(nuint) + nnz * sizeof(uint) + nnz * sizeof(float);
         var buffer = new byte[bufferSize];
 
         fixed (byte* ptr = buffer)
         {
-            *(uint*)ptr = (uint)nnz;
-            uint* indices = (uint*)(ptr + sizeof(uint));
-            float* values = (float*)(ptr + sizeof(uint) + nnz * sizeof(uint));
+            *(nuint*)ptr = (nuint)nnz;
+            uint* indices = (uint*)(ptr + sizeof(nuint));
+            float* values = (float*)(ptr + sizeof(nuint) + nnz * sizeof(uint));
 
             int i = 0;
             foreach (var kv in sparseVector)
