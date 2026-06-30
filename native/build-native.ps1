@@ -27,7 +27,7 @@ if (-not (Test-Path "$SrcDir\.git")) {
 $CmakeBuildDir = "$BuildDir\cmake-build"
 Write-Host "Configuring cmake..."
 cmake -S $SrcDir -B $CmakeBuildDir `
-    -G "Visual Studio 17 2022" -A x64 `
+    -A x64 `
     -DCMAKE_BUILD_TYPE=Release `
     -DBUILD_C_BINDINGS=ON `
     -DBUILD_PYTHON_BINDINGS=OFF `
