@@ -32,7 +32,7 @@ cmake -S $SrcDir -B $CmakeBuildDir `
     -DBUILD_C_BINDINGS=ON `
     -DBUILD_PYTHON_BINDINGS=OFF `
     -DBUILD_TOOLS=OFF `
-    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 `
+    "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" `
     -Wno-dev
 
 if ($LASTEXITCODE -ne 0) { throw "cmake configure failed" }
