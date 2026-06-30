@@ -10,7 +10,6 @@ namespace Zvec;
 public class MultiQuery : IDisposable
 {
     private nint _handle;
-    private nint _rerankerHandle;
     private readonly List<nint> _subQueryHandles = new();
     private bool _disposed;
 
@@ -103,59 +102,22 @@ public class MultiQuery : IDisposable
     public MultiQuery WithRrfReranker(int rankConstant = 60)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-
-        if (_rerankerHandle != 0)
-            NativeMethods.zvec_reranker_destroy(_rerankerHandle);
-
-        _rerankerHandle = NativeMethods.zvec_reranker_create_rrf(rankConstant);
-        if (_rerankerHandle == 0)
-            throw new ZvecException(ZvecErrorCode.InternalError, "Failed to create RRF reranker");
-
-        ZvecError.ThrowIfFailed(NativeMethods.zvec_multi_query_set_reranker(_handle, _rerankerHandle));
+        ZvecError.ThrowIfFailed(NativeMethods.zvec_multi_query_set_rerank_rrf(_handle, rankConstant));
         return this;
     }
 
     /// <summary>
-    /// Use weighted fusion to combine results. Each field gets a weight.
+    /// Use weighted fusion to combine results. Weights are applied in sub-query order.
     /// </summary>
-    public unsafe MultiQuery WithWeightedReranker(Dictionary<string, double> fieldWeights)
+    /// <param name="weights">Per-sub-query weights in the same order as AddSubQuery calls.</param>
+    public unsafe MultiQuery WithWeightedReranker(params double[] weights)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-
-        if (_rerankerHandle != 0)
-            NativeMethods.zvec_reranker_destroy(_rerankerHandle);
-
-        int count = fieldWeights.Count;
-        var fieldPtrs = new nint[count];
-        var weights = new double[count];
-
-        int i = 0;
-        foreach (var kv in fieldWeights)
+        fixed (double* wp = weights)
         {
-            fieldPtrs[i] = Marshal.StringToCoTaskMemUTF8(kv.Key);
-            weights[i] = kv.Value;
-            i++;
+            ZvecError.ThrowIfFailed(
+                NativeMethods.zvec_multi_query_set_rerank_weighted(_handle, wp, (nuint)weights.Length));
         }
-
-        try
-        {
-            fixed (nint* fp = fieldPtrs)
-            fixed (double* wp = weights)
-            {
-                _rerankerHandle = NativeMethods.zvec_reranker_create_weighted(fp, wp, (nuint)count);
-            }
-
-            if (_rerankerHandle == 0)
-                throw new ZvecException(ZvecErrorCode.InternalError, "Failed to create weighted reranker");
-
-            ZvecError.ThrowIfFailed(NativeMethods.zvec_multi_query_set_reranker(_handle, _rerankerHandle));
-        }
-        finally
-        {
-            foreach (var ptr in fieldPtrs)
-                if (ptr != 0) Marshal.FreeCoTaskMem(ptr);
-        }
-
         return this;
     }
 
@@ -187,12 +149,6 @@ public class MultiQuery : IDisposable
         foreach (var sh in _subQueryHandles)
             NativeMethods.zvec_sub_query_destroy(sh);
         _subQueryHandles.Clear();
-
-        if (_rerankerHandle != 0)
-        {
-            NativeMethods.zvec_reranker_destroy(_rerankerHandle);
-            _rerankerHandle = 0;
-        }
 
         if (_handle != 0)
         {

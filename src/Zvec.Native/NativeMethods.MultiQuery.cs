@@ -5,18 +5,15 @@ namespace Zvec.Native;
 internal static partial class NativeMethods
 {
     // =========================================================================
-    // Reranker
+    // Reranker (v0.5.0+ API -- set directly on multi-query, no standalone objects)
     // =========================================================================
 
-    [LibraryImport(LibName, EntryPoint = "zvec_reranker_create_rrf")]
-    internal static partial nint zvec_reranker_create_rrf(int rankConstant);
+    [LibraryImport(LibName, EntryPoint = "zvec_multi_query_set_rerank_rrf")]
+    internal static partial uint zvec_multi_query_set_rerank_rrf(nint query, int rankConstant);
 
-    [LibraryImport(LibName, EntryPoint = "zvec_reranker_create_weighted")]
-    internal static unsafe partial nint zvec_reranker_create_weighted(
-        nint* fields, double* weights, nuint fieldCount);
-
-    [LibraryImport(LibName, EntryPoint = "zvec_reranker_destroy")]
-    internal static partial void zvec_reranker_destroy(nint reranker);
+    [LibraryImport(LibName, EntryPoint = "zvec_multi_query_set_rerank_weighted")]
+    internal static unsafe partial uint zvec_multi_query_set_rerank_weighted(
+        nint query, double* weights, nuint weightCount);
 
     // =========================================================================
     // Multi-query
@@ -37,9 +34,6 @@ internal static partial class NativeMethods
     [LibraryImport(LibName, EntryPoint = "zvec_multi_query_set_filter", StringMarshalling = StringMarshalling.Utf8)]
     internal static partial uint zvec_multi_query_set_filter(nint query, string filter);
 
-    // copies shared_ptr, caller must still destroy reranker after
-    [LibraryImport(LibName, EntryPoint = "zvec_multi_query_set_reranker")]
-    internal static partial uint zvec_multi_query_set_reranker(nint query, nint reranker);
 
     // =========================================================================
     // Sub-query

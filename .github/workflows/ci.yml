@@ -19,13 +19,13 @@ jobs:
         include:
           - os: windows-latest
             rid: win-x64
-            script: powershell -File native/build-native.ps1 -Tag main
+            script: powershell -File native/build-native.ps1 -Tag v0.5.1
           - os: ubuntu-latest
             rid: linux-x64
-            script: bash native/build-native.sh main
+            script: bash native/build-native.sh v0.5.1
           - os: macos-14
             rid: osx-arm64
-            script: bash native/build-native.sh main
+            script: bash native/build-native.sh v0.5.1
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 240

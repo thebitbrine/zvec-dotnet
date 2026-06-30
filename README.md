@@ -88,14 +88,11 @@ var results = collection.Query(query);
 Weighted fusion is also available:
 
 ```csharp
+// Weights are applied in sub-query order
 using var query = new MultiQuery(topK: 10)
     .AddSubQuery("dense_vec", queryDenseVec)
     .AddSubQuery("content_vec", queryContentVec)
-    .WithWeightedReranker(new Dictionary<string, double>
-    {
-        ["dense_vec"] = 0.7,
-        ["content_vec"] = 0.3,
-    });
+    .WithWeightedReranker(0.7, 0.3);
 ```
 
 ## Filtered search
@@ -245,7 +242,7 @@ new MultiQuery(int topK)
 MultiQuery AddSubQuery(string fieldName, float[] vector, int numCandidates)
 MultiQuery AddSparseSubQuery(string fieldName, Dictionary<uint, float> sparseVector, int numCandidates)
 MultiQuery WithRrfReranker(int rankConstant = 60)
-MultiQuery WithWeightedReranker(Dictionary<string, double> fieldWeights)
+MultiQuery WithWeightedReranker(params double[] weights)  // weights in sub-query order
 MultiQuery WithFilter(string filter)
 ```
 

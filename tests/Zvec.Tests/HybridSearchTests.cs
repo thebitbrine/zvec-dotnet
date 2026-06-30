@@ -127,11 +127,7 @@ public class HybridSearchTests : IDisposable
         using var mq = new MultiQuery(topK: 5);
         mq.AddSubQuery("title_vec", RandomVector(16, new Random(99)))
           .AddSubQuery("content_vec", RandomVector(16, new Random(100)))
-          .WithWeightedReranker(new Dictionary<string, double>
-          {
-              ["title_vec"] = 0.7,
-              ["content_vec"] = 0.3,
-          });
+          .WithWeightedReranker(0.7, 0.3);
 
         var results = col.Query(mq);
         Assert.NotEmpty(results);

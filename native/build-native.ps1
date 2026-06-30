@@ -2,7 +2,7 @@
 # Requires: cmake 3.13+, Visual Studio 2022 (MSVC)
 
 param(
-    [string]$Tag = "v0.4.0",
+    [string]$Tag = "v0.5.1",
     [string]$OutDir = "$PSScriptRoot\..\runtimes\win-x64\native"
 )
 

@@ -4,7 +4,7 @@
 
 set -e
 
-TAG="${1:-v0.4.0}"
+TAG="${1:-v0.5.1}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="$SCRIPT_DIR/_build"
 SRC_DIR="$BUILD_DIR/zvec"
