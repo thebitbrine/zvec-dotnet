@@ -52,6 +52,13 @@ internal static partial class NativeMethods
     internal static partial uint zvec_index_params_set_ivf_params(
         nint indexParams, int nList, int nIters, [MarshalAs(UnmanagedType.U1)] bool useSoar);
 
+    // zvec_error_code_t zvec_index_params_set_fts_params(params*, tokenizer_name, filters, extra_params)
+    // All three can be NULL to keep native defaults. filters is const zvec_string_array_t*.
+    // (string array helpers already bound in NativeMethods.cs)
+    [LibraryImport(LibName, EntryPoint = "zvec_index_params_set_fts_params", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial uint zvec_index_params_set_fts_params(
+        nint indexParams, string? tokenizerName, nint filters, string? extraParams);
+
     // =========================================================================
     // Collection schema
     // =========================================================================

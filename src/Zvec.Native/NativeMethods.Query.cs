@@ -47,6 +47,33 @@ internal static partial class NativeMethods
     [LibraryImport(LibName, EntryPoint = "zvec_vector_query_set_fts")]
     internal static partial uint zvec_vector_query_set_fts(nint query, nint fts);
 
+    // zvec_fts_query_params_t* zvec_query_params_fts_create(const char *default_operator)
+    [LibraryImport(LibName, EntryPoint = "zvec_query_params_fts_create", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial nint zvec_query_params_fts_create(string defaultOperator);
+
+    [LibraryImport(LibName, EntryPoint = "zvec_query_params_fts_destroy")]
+    internal static partial void zvec_query_params_fts_destroy(nint ftsParams);
+
+    // TAKES OWNERSHIP of fts_params on success (c_api.h: "Set FTS query parameters (takes ownership)")
+    [LibraryImport(LibName, EntryPoint = "zvec_vector_query_set_fts_params")]
+    internal static partial uint zvec_vector_query_set_fts_params(nint query, nint ftsParams);
+
+    // =========================================================================
+    // HNSW query params (search-time ef)
+    // =========================================================================
+
+    [LibraryImport(LibName, EntryPoint = "zvec_query_params_hnsw_create")]
+    internal static partial nint zvec_query_params_hnsw_create(
+        int ef, float radius, [MarshalAs(UnmanagedType.U1)] bool isLinear,
+        [MarshalAs(UnmanagedType.U1)] bool isUsingRefiner);
+
+    [LibraryImport(LibName, EntryPoint = "zvec_query_params_hnsw_destroy")]
+    internal static partial void zvec_query_params_hnsw_destroy(nint hnswParams);
+
+    // TAKES OWNERSHIP of hnsw_params on success
+    [LibraryImport(LibName, EntryPoint = "zvec_vector_query_set_hnsw_params")]
+    internal static partial uint zvec_vector_query_set_hnsw_params(nint query, nint hnswParams);
+
     // =========================================================================
     // Query execution
     // =========================================================================

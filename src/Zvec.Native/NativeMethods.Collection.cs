@@ -14,6 +14,34 @@ internal static partial class NativeMethods
     [LibraryImport(LibName, EntryPoint = "zvec_collection_options_destroy")]
     internal static partial void zvec_collection_options_destroy(nint options);
 
+    [LibraryImport(LibName, EntryPoint = "zvec_collection_options_set_read_only")]
+    internal static partial uint zvec_collection_options_set_read_only(
+        nint options, [MarshalAs(UnmanagedType.U1)] bool readOnly);
+
+    // =========================================================================
+    // Collection statistics
+    // =========================================================================
+
+    // stats must be freed with zvec_collection_stats_destroy
+    [LibraryImport(LibName, EntryPoint = "zvec_collection_get_stats")]
+    internal static partial uint zvec_collection_get_stats(nint collection, out nint stats);
+
+    [LibraryImport(LibName, EntryPoint = "zvec_collection_stats_destroy")]
+    internal static partial void zvec_collection_stats_destroy(nint stats);
+
+    [LibraryImport(LibName, EntryPoint = "zvec_collection_stats_get_doc_count")]
+    internal static partial ulong zvec_collection_stats_get_doc_count(nint stats);
+
+    [LibraryImport(LibName, EntryPoint = "zvec_collection_stats_get_index_count")]
+    internal static partial nuint zvec_collection_stats_get_index_count(nint stats);
+
+    // Returns internal pointer, do NOT free
+    [LibraryImport(LibName, EntryPoint = "zvec_collection_stats_get_index_name")]
+    internal static partial nint zvec_collection_stats_get_index_name(nint stats, nuint index);
+
+    [LibraryImport(LibName, EntryPoint = "zvec_collection_stats_get_index_completeness")]
+    internal static partial float zvec_collection_stats_get_index_completeness(nint stats, nuint index);
+
     // =========================================================================
     // Collection lifecycle
     // =========================================================================

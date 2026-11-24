@@ -23,6 +23,7 @@ public enum DataType : uint
     VectorInt4      = 25,
     VectorInt8      = 26,
     VectorInt16     = 27,
+    VectorUInt8     = 28,
     SparseVectorFp16 = 30,
     SparseVectorFp32 = 31,
     ArrayBinary     = 40,

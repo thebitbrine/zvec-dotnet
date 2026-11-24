@@ -10,14 +10,12 @@
     <InternalsVisibleTo Include="Zvec.Tests" />
   </ItemGroup>
 
+  <!-- Packs as a dependency on the Zvec.Native package, which carries runtimes/* -->
   <ItemGroup>
     <ProjectReference Include="..\Zvec.Native\Zvec.Native.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="$(MSBuildThisFileDirectory)..\..\runtimes\**\*"
-          Pack="true"
-          PackagePath="runtimes/" />
     <None Include="$(MSBuildThisFileDirectory)..\..\README.md"
           Pack="true"
           PackagePath="\" />

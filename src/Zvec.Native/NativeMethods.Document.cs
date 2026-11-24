@@ -27,7 +27,7 @@ internal static partial class NativeMethods
     internal static partial void zvec_docs_free(nint docs, nuint count);
 
     // =========================================================================
-    // DML -- will be filled in Block 4
+    // DML
     // =========================================================================
 
     [LibraryImport(LibName, EntryPoint = "zvec_collection_insert")]
@@ -49,4 +49,8 @@ internal static partial class NativeMethods
     internal static unsafe partial uint zvec_collection_delete(
         nint collection, nint* pks, nuint pkCount,
         out nuint successCount, out nuint errorCount);
+
+    // The header comment mentions a deleted_count out param but the function has none.
+    [LibraryImport(LibName, EntryPoint = "zvec_collection_delete_by_filter", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial uint zvec_collection_delete_by_filter(nint collection, string filter);
 }

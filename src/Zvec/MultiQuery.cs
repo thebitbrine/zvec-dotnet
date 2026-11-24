@@ -4,8 +4,8 @@ using Zvec.Native;
 namespace Zvec;
 
 /// <summary>
-/// Multi-vector query with optional reranking. Searches across multiple vector fields
-/// and combines results using RRF or weighted fusion.
+/// Multi-field query with reranking. Runs dense, sparse and full-text sub-queries
+/// and combines their results using RRF or weighted fusion (hybrid search).
 /// </summary>
 public class MultiQuery : IDisposable
 {
@@ -91,6 +91,67 @@ public class MultiQuery : IDisposable
 
         ZvecError.ThrowIfFailed(NativeMethods.zvec_multi_query_add_sub_query(_handle, subHandle));
         _subQueryHandles.Add(subHandle);
+
+        return this;
+    }
+
+    /// <summary>
+    /// Add a full-text (keyword) sub-query against an FTS-indexed text field. Combine
+    /// it with a dense sub-query and a reranker for hybrid vector + keyword search.
+    /// </summary>
+    /// <param name="fieldName">Text field with an FTS index (see ZvecSchema.AddText).</param>
+    /// <param name="text">Natural-language text, or a query expression when isExpression is true.</param>
+    /// <param name="numCandidates">Number of candidates to retrieve from this field before reranking.</param>
+    /// <param name="isExpression">Treat text as an FTS expression (e.g. "quantum AND physics").</param>
+    /// <param name="defaultOperator">"AND"/"OR" between terms; null keeps zvec's default.</param>
+    public MultiQuery AddFtsSubQuery(string fieldName, string text, int numCandidates = 100,
+        bool isExpression = false, string? defaultOperator = null)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        nint subHandle = NativeMethods.zvec_sub_query_create();
+        if (subHandle == 0)
+            throw new ZvecException(ZvecErrorCode.InternalError, "Failed to create sub-query");
+
+        // tracked right away so Dispose frees it even if a setter below throws
+        _subQueryHandles.Add(subHandle);
+
+        ZvecError.ThrowIfFailed(NativeMethods.zvec_sub_query_set_field_name(subHandle, fieldName));
+        ZvecError.ThrowIfFailed(NativeMethods.zvec_sub_query_set_num_candidates(subHandle, numCandidates));
+
+        nint ftsHandle = NativeMethods.zvec_fts_create();
+        if (ftsHandle == 0)
+            throw new ZvecException(ZvecErrorCode.InternalError, "Failed to create FTS query");
+
+        try
+        {
+            ZvecError.ThrowIfFailed(isExpression
+                ? NativeMethods.zvec_fts_set_query_string(ftsHandle, text)
+                : NativeMethods.zvec_fts_set_match_string(ftsHandle, text));
+            // set_fts copies the payload, we still own ftsHandle
+            ZvecError.ThrowIfFailed(NativeMethods.zvec_sub_query_set_fts(subHandle, ftsHandle));
+        }
+        finally
+        {
+            NativeMethods.zvec_fts_destroy(ftsHandle);
+        }
+
+        if (defaultOperator != null)
+        {
+            nint paramsHandle = NativeMethods.zvec_query_params_fts_create(defaultOperator);
+            if (paramsHandle == 0)
+                throw new ZvecException(ZvecErrorCode.InternalError, "Failed to create FTS query params");
+
+            // set_fts_params takes ownership on success -- only destroy on failure
+            uint rc = NativeMethods.zvec_sub_query_set_fts_params(subHandle, paramsHandle);
+            if (rc != 0)
+            {
+                NativeMethods.zvec_query_params_fts_destroy(paramsHandle);
+                ZvecError.ThrowIfFailed(rc);
+            }
+        }
+
+        ZvecError.ThrowIfFailed(NativeMethods.zvec_multi_query_add_sub_query(_handle, subHandle));
 
         return this;
     }

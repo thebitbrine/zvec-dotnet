@@ -2,10 +2,24 @@
   <PropertyGroup>
     <RootNamespace>Zvec.Native</RootNamespace>
     <AssemblyName>Zvec.Native</AssemblyName>
+    <PackageId>Zvec.Native</PackageId>
+    <Description>Native Zvec libraries (win-x64, linux-x64, linux-arm64, osx-arm64) and P/Invoke layer for the Zvec package. Reference Zvec instead of this.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="Zvec" />
     <InternalsVisibleTo Include="Zvec.Tests" />
+  </ItemGroup>
+
+  <!-- The native libraries ship here, next to the P/Invoke declarations that load them.
+       Zvec depends on this package, so both have to be pushed to the feed. -->
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)..\..\runtimes\**\*"
+          Pack="true"
+          PackagePath="runtimes/" />
+    <None Include="$(MSBuildThisFileDirectory)..\..\README.md"
+          Pack="true"
+          PackagePath="\" />
   </ItemGroup>
 </Project>
