@@ -83,13 +83,14 @@ jobs:
           ls -lh nupkg
 
       # Install the packages the way a user would and run the sample against them,
-      # so a broken runtimes/ layout or dependency fails here and not on nuget.org
+      # so a broken runtimes/ layout or dependency fails here and not on nuget.org.
+      # The project lives outside the checkout so it doesn't inherit Directory.Build.props.
       - name: Smoke test packages
         run: |
           VERSION=$(ls nupkg/Zvec.Native.*.nupkg | sed -E 's/.*Zvec\.Native\.(.*)\.nupkg/\1/')
-          mkdir smoke && cd smoke
+          mkdir "$RUNNER_TEMP/smoke" && cd "$RUNNER_TEMP/smoke"
           dotnet new console --framework net8.0 --no-restore
-          cp ../samples/BasicSearch/Program.cs Program.cs
+          cp "$GITHUB_WORKSPACE/samples/BasicSearch/Program.cs" Program.cs
           dotnet add package Zvec --version "$VERSION" --source "$GITHUB_WORKSPACE/nupkg"
           dotnet run
 
