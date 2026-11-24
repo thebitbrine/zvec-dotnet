@@ -137,6 +137,50 @@ public class ZvecSchema
     }
 
     /// <summary>
+    /// Add a string field with a full-text search index attached at schema time.
+    /// Null tokenizer/filters/extraParams keep zvec's defaults.
+    /// </summary>
+    /// <param name="name">Field name.</param>
+    /// <param name="tokenizerName">"standard", "ngram", "jieba" or "whitespace".</param>
+    /// <param name="filters">Token filters: "lowercase", "ascii_folding", "stemmer".</param>
+    /// <param name="extraParams">JSON object with tokenizer/filter settings, e.g.
+    /// {"ngram_min":2,"ngram_max":3} or {"stemmer_lang":"english"}.</param>
+    /// <param name="nullable">Allow documents without this field.</param>
+    public void AddText(string name, string? tokenizerName = null,
+        IReadOnlyList<string>? filters = null, string? extraParams = null, bool nullable = false)
+    {
+        nint fieldHandle = NativeMethods.zvec_field_schema_create(
+            name, (uint)DataType.String, nullable, 0);
+        if (fieldHandle == 0)
+            throw new ZvecException(ZvecErrorCode.InternalError, "Failed to create text field schema");
+
+        try
+        {
+            nint paramsHandle = NativeMethods.zvec_index_params_create((uint)IndexType.Fts);
+            if (paramsHandle == 0)
+                throw new ZvecException(ZvecErrorCode.InternalError, "Failed to create FTS index params");
+
+            try
+            {
+                FtsInterop.ApplyFtsParams(paramsHandle, tokenizerName, filters, extraParams);
+                ZvecError.ThrowIfFailed(
+                    NativeMethods.zvec_field_schema_set_index_params(fieldHandle, paramsHandle));
+            }
+            finally
+            {
+                NativeMethods.zvec_index_params_destroy(paramsHandle);
+            }
+
+            ZvecError.ThrowIfFailed(
+                NativeMethods.zvec_collection_schema_add_field(_schemaHandle, fieldHandle));
+        }
+        finally
+        {
+            NativeMethods.zvec_field_schema_destroy(fieldHandle);
+        }
+    }
+
+    /// <summary>
     /// Add a scalar field (string, int32, float, etc).
     /// </summary>
     public void AddScalar(string name, DataType dataType, bool nullable = false)

@@ -54,12 +54,16 @@ public class ZvecDocument : IDisposable
         }
     }
 
-    /// <summary>Set a string field value.</summary>
+    /// <summary>Set a string field value. Empty strings are valid values.</summary>
     public unsafe void SetString(string fieldName, string value)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         byte[] utf8 = Encoding.UTF8.GetBytes(value);
-        fixed (byte* ptr = utf8)
+        // fixed on a zero-length array yields a NULL pointer, which the native
+        // side rejects ("Invalid arguments: null pointer"). Give empty strings a
+        // real (dummy) pointer and pass size 0.
+        byte[] pinTarget = utf8.Length > 0 ? utf8 : new byte[1];
+        fixed (byte* ptr = pinTarget)
         {
             ZvecError.ThrowIfFailed(
                 NativeMethods.zvec_doc_add_field_by_value(

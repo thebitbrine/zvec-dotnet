@@ -58,6 +58,14 @@ internal static partial class NativeMethods
     internal static unsafe partial uint zvec_sub_query_set_sparse_vector(
         nint query, uint* indices, float* values, nuint count);
 
+    // payload is copied, caller retains ownership of fts
+    [LibraryImport(LibName, EntryPoint = "zvec_sub_query_set_fts")]
+    internal static partial uint zvec_sub_query_set_fts(nint query, nint fts);
+
+    // TAKES OWNERSHIP of fts_params on success
+    [LibraryImport(LibName, EntryPoint = "zvec_sub_query_set_fts_params")]
+    internal static partial uint zvec_sub_query_set_fts_params(nint query, nint ftsParams);
+
     // =========================================================================
     // Multi-query execution
     // =========================================================================

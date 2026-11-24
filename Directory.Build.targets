@@ -1,21 +1,16 @@
 <Project>
-  <!-- Copy native libraries to output for local development and CI -->
-  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
-    <None Include="$(MSBuildThisFileDirectory)runtimes\win-x64\native\*"
-          CopyToOutputDirectory="PreserveNewest"
-          Link="%(Filename)%(Extension)"
-          Visible="false" />
-  </ItemGroup>
+  <!-- Copy this machine's native library next to every build output so tests and
+       samples run straight from the repo (get it with native/fetch-native.py).
+       Package consumers don't go through this: NuGet resolves runtimes/<rid>/native. -->
+  <PropertyGroup>
+    <ZvecOs Condition="$([MSBuild]::IsOSPlatform('Windows'))">win</ZvecOs>
+    <ZvecOs Condition="$([MSBuild]::IsOSPlatform('Linux'))">linux</ZvecOs>
+    <ZvecOs Condition="$([MSBuild]::IsOSPlatform('OSX'))">osx</ZvecOs>
+    <ZvecArch>$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString().ToLowerInvariant())</ZvecArch>
+  </PropertyGroup>
 
-  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
-    <None Include="$(MSBuildThisFileDirectory)runtimes\linux-x64\native\*"
-          CopyToOutputDirectory="PreserveNewest"
-          Link="%(Filename)%(Extension)"
-          Visible="false" />
-  </ItemGroup>
-
-  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
-    <None Include="$(MSBuildThisFileDirectory)runtimes\osx-arm64\native\*"
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)runtimes\$(ZvecOs)-$(ZvecArch)\native\*"
           CopyToOutputDirectory="PreserveNewest"
           Link="%(Filename)%(Extension)"
           Visible="false" />

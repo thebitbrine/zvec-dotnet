@@ -3,7 +3,7 @@ using Zvec.Native;
 namespace Zvec;
 
 /// <summary>
-/// Builder for vector similarity queries.
+/// Builder for single-field queries: vector similarity (For) or full-text (ForFts).
 /// </summary>
 public class VectorQuery : IDisposable
 {
@@ -34,6 +34,67 @@ public class VectorQuery : IDisposable
         }
 
         return new VectorQuery(handle);
+    }
+
+    /// <summary>
+    /// Create a text-only query against an FTS-indexed string field (no query vector).
+    /// Chain WithFtsMatch() or WithFts() to set the search text.
+    /// </summary>
+    public static VectorQuery ForFts(string fieldName, int topK)
+    {
+        nint handle = NativeMethods.zvec_vector_query_create();
+        if (handle == 0)
+            throw new ZvecException(ZvecErrorCode.InternalError, "Failed to create FTS query");
+
+        ZvecError.ThrowIfFailed(NativeMethods.zvec_vector_query_set_field_name(handle, fieldName));
+        ZvecError.ThrowIfFailed(NativeMethods.zvec_vector_query_set_topk(handle, topK));
+
+        return new VectorQuery(handle);
+    }
+
+    /// <summary>
+    /// Set the default operator ("AND"/"OR") applied between terms of an FTS query.
+    /// </summary>
+    public VectorQuery WithFtsOperator(string defaultOperator)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        nint paramsHandle = NativeMethods.zvec_query_params_fts_create(defaultOperator);
+        if (paramsHandle == 0)
+            throw new ZvecException(ZvecErrorCode.InternalError, "Failed to create FTS query params");
+
+        // set_fts_params takes ownership on success -- only destroy on failure
+        uint rc = NativeMethods.zvec_vector_query_set_fts_params(_handle, paramsHandle);
+        if (rc != 0)
+        {
+            NativeMethods.zvec_query_params_fts_destroy(paramsHandle);
+            ZvecError.ThrowIfFailed(rc);
+        }
+
+        return this;
+    }
+
+    /// <summary>
+    /// Set the HNSW search-time exploration factor (zvec default: 40). Higher = better
+    /// recall, slower queries. Only applies to HNSW-indexed fields.
+    /// </summary>
+    public VectorQuery WithEf(int ef)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        nint paramsHandle = NativeMethods.zvec_query_params_hnsw_create(ef, 0f, false, false);
+        if (paramsHandle == 0)
+            throw new ZvecException(ZvecErrorCode.InternalError, "Failed to create HNSW query params");
+
+        // set_hnsw_params takes ownership on success -- only destroy on failure
+        uint rc = NativeMethods.zvec_vector_query_set_hnsw_params(_handle, paramsHandle);
+        if (rc != 0)
+        {
+            NativeMethods.zvec_query_params_hnsw_destroy(paramsHandle);
+            ZvecError.ThrowIfFailed(rc);
+        }
+
+        return this;
     }
 
     /// <summary>

@@ -25,6 +25,7 @@ public class EnumTests
     [InlineData(DataType.VectorInt4, 25u)]
     [InlineData(DataType.VectorInt8, 26u)]
     [InlineData(DataType.VectorInt16, 27u)]
+    [InlineData(DataType.VectorUInt8, 28u)]
     [InlineData(DataType.SparseVectorFp16, 30u)]
     [InlineData(DataType.SparseVectorFp32, 31u)]
     [InlineData(DataType.ArrayBinary, 40u)]
@@ -65,6 +66,10 @@ public class EnumTests
     [InlineData(IndexType.Hnsw, 1u)]
     [InlineData(IndexType.Ivf, 2u)]
     [InlineData(IndexType.Flat, 3u)]
+    [InlineData(IndexType.HnswRabitq, 4u)]
+    [InlineData(IndexType.DiskAnn, 5u)]
+    [InlineData(IndexType.Vamana, 6u)]
+    [InlineData(IndexType.IvfRabitq, 7u)]
     [InlineData(IndexType.Invert, 10u)]
     [InlineData(IndexType.Fts, 11u)]
     public void IndexType_HasCorrectValue(IndexType it, uint expected)

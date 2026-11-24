@@ -48,6 +48,12 @@ public static class ZvecRuntime
     public static bool IsInitialized => NativeMethods.zvec_is_initialized();
 
     /// <summary>
+    /// True when the loaded native library is at least the given version.
+    /// </summary>
+    public static bool VersionAtLeast(int major, int minor, int patch) =>
+        NativeMethods.zvec_check_version(major, minor, patch);
+
+    /// <summary>
     /// Get the native library version string.
     /// </summary>
     public static string Version

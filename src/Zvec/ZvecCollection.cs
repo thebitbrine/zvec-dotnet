@@ -50,14 +50,71 @@ public class ZvecCollection : IDisposable
     /// Open an existing collection from disk.
     /// </summary>
     /// <param name="path">Directory path of the collection.</param>
-    public static ZvecCollection Open(string path)
+    public static ZvecCollection Open(string path) => Open(path, readOnly: false);
+
+    /// <summary>
+    /// Open an existing collection from disk, optionally read-only. Several processes
+    /// can hold the same collection read-only. A collection with pending WAL recovery
+    /// has to be opened and closed writable once before it opens read-only (zvec v0.8.1).
+    /// </summary>
+    /// <param name="path">Directory path of the collection.</param>
+    /// <param name="readOnly">Open without write access.</param>
+    public static ZvecCollection Open(string path, bool readOnly)
     {
         ZvecRuntime.Initialize();
 
-        ZvecError.ThrowIfFailed(
-            NativeMethods.zvec_collection_open(path, 0, out nint collHandle));
+        if (!readOnly)
+        {
+            ZvecError.ThrowIfFailed(
+                NativeMethods.zvec_collection_open(path, 0, out nint handle));
+            return new ZvecCollection(handle);
+        }
 
-        return new ZvecCollection(collHandle);
+        nint options = NativeMethods.zvec_collection_options_create();
+        if (options == 0)
+            throw new ZvecException(ZvecErrorCode.InternalError, "Failed to create collection options");
+
+        try
+        {
+            ZvecError.ThrowIfFailed(NativeMethods.zvec_collection_options_set_read_only(options, true));
+            ZvecError.ThrowIfFailed(
+                NativeMethods.zvec_collection_open(path, options, out nint handle));
+            return new ZvecCollection(handle);
+        }
+        finally
+        {
+            NativeMethods.zvec_collection_options_destroy(options);
+        }
+    }
+
+    /// <summary>
+    /// Get the document count and per-index build completeness.
+    /// </summary>
+    public CollectionStats GetStats()
+    {
+        ThrowIfDisposed();
+
+        ZvecError.ThrowIfFailed(NativeMethods.zvec_collection_get_stats(_handle, out nint stats));
+        try
+        {
+            ulong docCount = NativeMethods.zvec_collection_stats_get_doc_count(stats);
+            nuint indexCount = NativeMethods.zvec_collection_stats_get_index_count(stats);
+
+            var indexes = new List<IndexStats>((int)indexCount);
+            for (nuint i = 0; i < indexCount; i++)
+            {
+                string name = Marshal.PtrToStringUTF8(
+                    NativeMethods.zvec_collection_stats_get_index_name(stats, i)) ?? "";
+                indexes.Add(new IndexStats(name,
+                    NativeMethods.zvec_collection_stats_get_index_completeness(stats, i)));
+            }
+
+            return new CollectionStats(docCount, indexes);
+        }
+        finally
+        {
+            NativeMethods.zvec_collection_stats_destroy(stats);
+        }
     }
 
     /// <summary>
@@ -146,6 +203,35 @@ public class ZvecCollection : IDisposable
     }
 
     /// <summary>
+    /// Create a full-text search index on an existing string field.
+    /// Null tokenizer/filters/extraParams keep zvec's defaults. Rows already in the
+    /// collection get indexed too. Needs zvec v0.8+ (v0.5.1 returned NotSupported and
+    /// only took FTS indexes at schema time via ZvecSchema.AddText()).
+    /// </summary>
+    public void CreateFtsIndex(string fieldName, string? tokenizerName = null,
+        IReadOnlyList<string>? filters = null, string? extraParams = null)
+    {
+        ThrowIfDisposed();
+
+        nint paramsHandle = NativeMethods.zvec_index_params_create((uint)IndexType.Fts);
+        if (paramsHandle == 0)
+            throw new ZvecException(ZvecErrorCode.InternalError, "Failed to create FTS index params");
+
+        try
+        {
+            // no metric type: FTS is not a distance-metric index
+            FtsInterop.ApplyFtsParams(paramsHandle, tokenizerName, filters, extraParams);
+
+            ZvecError.ThrowIfFailed(
+                NativeMethods.zvec_collection_create_index(_handle, fieldName, paramsHandle));
+        }
+        finally
+        {
+            NativeMethods.zvec_index_params_destroy(paramsHandle);
+        }
+    }
+
+    /// <summary>
     /// Optimize the collection (rebuild indexes, merge segments).
     /// </summary>
     public void Optimize()
@@ -213,7 +299,7 @@ public class ZvecCollection : IDisposable
     // =========================================================================
 
     /// <summary>
-    /// Execute a multi-vector query with optional reranking (hybrid search).
+    /// Execute a multi-field query with reranking (hybrid search).
     /// </summary>
     public unsafe IReadOnlyList<SearchResult> Query(MultiQuery query)
     {
@@ -244,7 +330,47 @@ public class ZvecCollection : IDisposable
     }
 
     /// <summary>
-    /// Execute a vector similarity search.
+    /// Execute a grouped vector search: best matches per distinct value of the
+    /// group-by field. Groups come back best first. Requires zvec v0.8.1+.
+    /// </summary>
+    public unsafe IReadOnlyList<SearchGroup> Query(GroupByQuery query)
+    {
+        ThrowIfDisposed();
+
+        ZvecError.ThrowIfFailed(
+            NativeMethods.zvec_collection_group_by_query(_handle, query.Handle,
+                out GroupResult* groups, out nuint groupCount));
+
+        var results = new List<SearchGroup>((int)groupCount);
+
+        try
+        {
+            for (nuint g = 0; g < groupCount; g++)
+            {
+                string value = Marshal.PtrToStringUTF8(groups[g].GroupByValue) ?? "";
+                var docs = new List<SearchResult>((int)groups[g].DocCount);
+
+                for (nuint i = 0; i < groups[g].DocCount; i++)
+                {
+                    nint docPtr = groups[g].Docs[i];
+                    string pk = Marshal.PtrToStringUTF8(NativeMethods.zvec_doc_get_pk_pointer(docPtr)) ?? "";
+                    docs.Add(new SearchResult(pk, NativeMethods.zvec_doc_get_score(docPtr)));
+                }
+
+                results.Add(new SearchGroup(value, docs));
+            }
+        }
+        finally
+        {
+            // frees the group values and every doc in one go (NULL is allowed)
+            NativeMethods.zvec_group_results_free(groups, groupCount);
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Execute a vector similarity or full-text search.
     /// </summary>
     public unsafe IReadOnlyList<SearchResult> Query(VectorQuery query)
     {
@@ -344,6 +470,139 @@ public class ZvecCollection : IDisposable
         finally
         {
             Marshal.FreeCoTaskMem(pkPtr);
+        }
+    }
+
+    /// <summary>
+    /// Delete every document matching a filter expression (e.g. "year &lt; 2020").
+    /// </summary>
+    public void DeleteByFilter(string filterExpression)
+    {
+        ThrowIfDisposed();
+        ZvecError.ThrowIfFailed(NativeMethods.zvec_collection_delete_by_filter(_handle, filterExpression));
+    }
+
+    /// <summary>
+    /// Walk every document in the collection (a snapshot taken when enumeration starts;
+    /// later writes are not visible). Each yielded doc is only readable until the next
+    /// one is requested. Always enumerate with foreach or dispose the enumerator: zvec
+    /// refuses schema changes and Optimize while a scan is open, and closing the
+    /// collection waits for it. On a writable collection each scan seals the current
+    /// writing segment.
+    /// </summary>
+    /// <param name="outputFields">Fields to return; null = all fields.</param>
+    /// <param name="includeVector">Include vector data (off by default - it's big).</param>
+    public IEnumerable<FetchedDoc> Scan(IReadOnlyList<string>? outputFields = null, bool includeVector = false)
+    {
+        nint iterator = CreateIterator(outputFields, includeVector);
+        FetchedDoc? current = null;
+
+        try
+        {
+            while (true)
+            {
+                ZvecError.ThrowIfFailed(NativeMethods.zvec_doc_iterator_next(iterator, out nint doc));
+
+                current?.Release();
+                current = null;
+
+                if (doc == 0)
+                    yield break; // end of collection
+
+                current = new FetchedDoc(null, doc);
+                yield return current;
+            }
+        }
+        finally
+        {
+            current?.Release();
+            NativeMethods.zvec_doc_iterator_close(iterator);
+        }
+    }
+
+    // Split out of Scan because iterator methods can't contain unsafe code.
+    private unsafe nint CreateIterator(IReadOnlyList<string>? outputFields, bool includeVector)
+    {
+        ThrowIfDisposed();
+
+        nint options = NativeMethods.zvec_iterator_options_create();
+        if (options == 0)
+            throw new ZvecException(ZvecErrorCode.InternalError, "Failed to create iterator options");
+
+        var fieldPtrs = outputFields is { Count: > 0 } ? new nint[outputFields.Count] : null;
+
+        try
+        {
+            // native default is include_vector = true, ours is false
+            ZvecError.ThrowIfFailed(
+                NativeMethods.zvec_iterator_options_set_include_vector(options, includeVector));
+
+            if (fieldPtrs != null)
+            {
+                for (int i = 0; i < fieldPtrs.Length; i++)
+                    fieldPtrs[i] = Marshal.StringToCoTaskMemUTF8(outputFields![i]);
+
+                fixed (nint* fields = fieldPtrs)
+                {
+                    ZvecError.ThrowIfFailed(
+                        NativeMethods.zvec_iterator_options_set_output_fields(
+                            options, fields, (nuint)fieldPtrs.Length));
+                }
+            }
+
+            ZvecError.ThrowIfFailed(
+                NativeMethods.zvec_collection_create_iterator(_handle, options, out nint iterator));
+            return iterator;
+        }
+        finally
+        {
+            if (fieldPtrs != null)
+                foreach (var p in fieldPtrs) if (p != 0) Marshal.FreeCoTaskMem(p);
+            NativeMethods.zvec_iterator_options_destroy(options);
+        }
+    }
+
+    /// <summary>
+    /// Fetch documents by primary key. Missing keys are silently absent from the
+    /// result. Dispose the FetchResult when done reading - field pointers live
+    /// inside the native doc array.
+    /// </summary>
+    /// <param name="primaryKeys">Keys to fetch.</param>
+    /// <param name="outputFields">Fields to return; null = all fields.</param>
+    /// <param name="includeVector">Include vector data (off by default - it's big).</param>
+    public unsafe FetchResult Fetch(IReadOnlyList<string> primaryKeys,
+        IReadOnlyList<string>? outputFields = null, bool includeVector = false)
+    {
+        ThrowIfDisposed();
+
+        var pkPtrs = new nint[primaryKeys.Count];
+        var fieldPtrs = outputFields is { Count: > 0 } ? new nint[outputFields.Count] : null;
+
+        try
+        {
+            for (int i = 0; i < primaryKeys.Count; i++)
+                pkPtrs[i] = Marshal.StringToCoTaskMemUTF8(primaryKeys[i]);
+            if (fieldPtrs != null)
+                for (int i = 0; i < outputFields!.Count; i++)
+                    fieldPtrs[i] = Marshal.StringToCoTaskMemUTF8(outputFields[i]);
+
+            fixed (nint* pks = pkPtrs)
+            fixed (nint* fields = fieldPtrs)
+            {
+                ZvecError.ThrowIfFailed(NativeMethods.zvec_collection_fetch(
+                    _handle, pks, (nuint)primaryKeys.Count,
+                    fieldPtrs != null ? fields : null,
+                    (nuint)(outputFields?.Count ?? 0),
+                    includeVector, out nint* docs, out nuint foundCount));
+
+                return new FetchResult(docs, foundCount);
+            }
+        }
+        finally
+        {
+            foreach (var p in pkPtrs) if (p != 0) Marshal.FreeCoTaskMem(p);
+            if (fieldPtrs != null)
+                foreach (var p in fieldPtrs) if (p != 0) Marshal.FreeCoTaskMem(p);
         }
     }
 

@@ -5,12 +5,15 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Version>0.5.0</Version>
+    <!-- Tracks the upstream zvec release the native libraries come from -->
+    <Version>0.8.1</Version>
     <Authors>TheBitBrine</Authors>
     <Description>C# .NET bindings for Zvec -- Alibaba's embedded vector database</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/TheBitBrine/zvec-dotnet</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/TheBitBrine/zvec-dotnet</PackageProjectUrl>
+    <PackageTags>vector-database;vector-search;embeddings;hnsw;full-text-search;hybrid-search;zvec</PackageTags>
 
     <!-- Source Link: embed git commit info in PDB for debugger source stepping -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>

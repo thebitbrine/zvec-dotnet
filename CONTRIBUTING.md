@@ -3,29 +3,37 @@
 ## Setup
 
 1. Clone the repo
-2. Get native binaries -- either extract from the [zvec Python wheel](https://pypi.org/project/zvec/) or build from source:
-   ```
-   cd native
-   powershell -File build-native.ps1 -Tag main   # Windows
-   bash build-native.sh main                      # Linux/macOS
-   ```
-3. Place DLLs in `runtimes/{rid}/native/` (e.g. `runtimes/win-x64/native/zvec_c_api.dll`)
-4. `dotnet build`
-5. `dotnet test`
+2. `python native/fetch-native.py` (downloads the prebuilt zvec library for your platform into `runtimes/{rid}/native/`)
+3. `dotnet build`
+4. `dotnet test --filter "FullyQualifiedName!~LargeScale"`
 
 ## Project layout
 
-- `src/Zvec.Native/` -- P/Invoke declarations, SafeHandles, enums. Maps directly to `c_api.h`.
+- `src/Zvec.Native/` -- P/Invoke declarations and enums. Maps directly to `c_api.h`. Packs the native libraries.
 - `src/Zvec/` -- Public API. This is what users see.
 - `tests/Zvec.Tests/` -- xUnit tests. Every public method should have test coverage.
+- `samples/BasicSearch/` -- Runnable example, also run by CI.
+- `native/fetch-native.py` -- Pins the upstream zvec release and the hashes of its SDK archives.
 
 ## Adding a new C API binding
 
 1. Add the `[LibraryImport]` declaration in the appropriate `NativeMethods.*.cs` file
-2. If it returns/takes an opaque handle, add a SafeHandle subclass in `Handles/`
-3. Add the public C# wrapper in `src/Zvec/`
-4. Add tests
-5. Build and run tests before submitting
+2. Add the public C# wrapper in `src/Zvec/`
+3. Add tests
+4. Build and run tests before submitting
+
+Check the ownership rule in the header comment for every pointer you pass: some setters copy, some take ownership.
+
+## Moving to a new zvec release
+
+1. Diff `src/include/zvec/c_api.h` between the two upstream tags
+2. Update `TAG` and the sha256 values in `native/fetch-native.py`
+3. Update `Version` in `Directory.Build.props` to match
+4. Fix what the diff broke, add bindings for what it added, run the tests
+
+## Releasing
+
+Push a `v*` tag. CI tests every platform, packs `Zvec.Native` and `Zvec`, pushes both to nuget.org and attaches them to a GitHub release. The tag sets the package version.
 
 ## Code style
 
@@ -33,20 +41,6 @@
 - No abstractions unless there are multiple concrete implementations
 - Comments explain *why*, not *what*
 - Keep unsafe code contained in the setter/query methods; public API should feel natural
-
-## Tests
-
-Run all tests except the long-running large-scale benchmarks:
-
-```
-dotnet test --filter "FullyQualifiedName!~LargeScale"
-```
-
-Run everything:
-
-```
-dotnet test
-```
 
 ## Commits
 

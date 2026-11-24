@@ -33,6 +33,11 @@ internal static partial class NativeMethods
     [LibraryImport(LibName, EntryPoint = "zvec_get_version")]
     internal static partial nint zvec_get_version();
 
+    // bool zvec_check_version(int major, int minor, int patch) -- true if lib >= given
+    [LibraryImport(LibName, EntryPoint = "zvec_check_version")]
+    [return: MarshalAs(UnmanagedType.U1)]
+    internal static partial bool zvec_check_version(int major, int minor, int patch);
+
     // =========================================================================
     // Error handling
     // =========================================================================

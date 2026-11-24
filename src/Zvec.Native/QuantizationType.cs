@@ -9,4 +9,6 @@ public enum QuantizationType : uint
     Fp16      = 1,
     Int8      = 2,
     Int4      = 3,
+    Rabitq    = 4,
+    Pq        = 8,
 }
