@@ -23,7 +23,7 @@ jobs:
             rid: linux-x64
           - os: ubuntu-24.04-arm
             rid: linux-arm64
-          - os: macos-14
+          - os: macos-latest
             rid: osx-arm64
 
     name: test (${{ matrix.rid }})
