@@ -1,5 +1,7 @@
 # Zvec.NET
 
+[![NuGet](https://img.shields.io/nuget/v/Zvec.svg)](https://www.nuget.org/packages/Zvec)
+
 .NET bindings for [Zvec](https://github.com/alibaba/zvec), Alibaba's embedded vector database. In-process vector search, full-text search and hybrid search with disk persistence and no server to run.
 
 Wraps the Zvec C API (`c_api.h`) via P/Invoke. Targets .NET 8.0+. Package version tracks the upstream Zvec release it ships (0.8.1 = Zvec v0.8.1).
@@ -7,8 +9,10 @@ Wraps the Zvec C API (`c_api.h`) via P/Invoke. Targets .NET 8.0+. Package versio
 ## Installation
 
 ```
-dotnet add package Zvec
+dotnet add package Zvec --version 0.8.1
 ```
+
+Packages on nuget.org: [Zvec](https://www.nuget.org/packages/Zvec) (the API, this is the one you reference) and [Zvec.Native](https://www.nuget.org/packages/Zvec.Native) (native libraries, pulled in automatically).
 
 Native libraries come along through the `Zvec.Native` dependency for:
 
@@ -19,7 +23,18 @@ Native libraries come along through the `Zvec.Native` dependency for:
 | `linux-arm64` | glibc 2.27+ |
 | `osx-arm64` | |
 
-They are the unmodified prebuilt libraries from the upstream Zvec release.
+They are the unmodified prebuilt libraries from the upstream Zvec release. Not included: Alpine/musl Linux, Intel Macs and Windows on ARM. Upstream builds those too, they're just not packed or tested here yet.
+
+## What's new in 0.8.1
+
+- Built on Zvec v0.8.1 (was v0.5.1)
+- Hybrid search: keyword sub-queries next to vector sub-queries in one `MultiQuery`
+- Full-text fields with tokenizer options, and full-text indexes on existing columns
+- Grouped search (`GroupByQuery`), full scan (`Scan`), `DeleteByFilter`, `GetStats`, read-only open, search-time `ef`
+- Linux arm64 support
+- `Zvec.Native` is now published, so `Zvec` restores from nuget.org on its own. 0.5.0 depended on a `Zvec.Native` that was never pushed
+
+If you're coming from 0.5.x, read [Upgrading from 0.5.x](#upgrading-from-05x): full-text indexes need a one-time rebuild.
 
 ## Quick start
 
